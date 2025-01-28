@@ -2,9 +2,9 @@
 #import "@preview/codly-languages:0.1.3": *
 
 // Init codly. If live preview stops working, remove this block until the final generation of the report
-// #show: codly-init.with()
-// #codly(languages: codly-languages)
-//
+#show: codly-init.with()
+#codly(languages: codly-languages)
+
 // Import the glossary
 #include "_glossary.typ"
 
@@ -27,7 +27,7 @@
 #show: template.with(
   title: "This is a title of a thesis",
   subtitle: "This is a subtitle of a thesis",
-  // You MUST keep a trailing comma here, even if there is only one author
+  // You MUST keep a trailing Scomma here, even if there is only one author
   authors: (
     (
       name: "Lastname Firstname",

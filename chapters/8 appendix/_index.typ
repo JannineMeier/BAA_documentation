@@ -7,8 +7,12 @@ During programming, the following tools were used:
 For proofreading, the following tools were used:
 - Grammarly#footnote[https://www.grammarly.com/]
 
-// #include "initial_baselines.typ"
-// #pagebreak()
-// #include "images/_index.typ"
-// #pagebreak()
-// #include "code/_index.typ"
+== Code
+```python
+import os
+
+import numpy as np
+
+def hello_world():
+	print("Hello, World!")
+```
