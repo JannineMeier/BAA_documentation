@@ -1,28 +1,5 @@
 #import "@preview/acrostiche:0.5.0": init-acronyms
 
 #init-acronyms((
-  "CAcc": "Character Accuracy",
-  "CER": "Character Error Rate",
-  "DPI": "Dots per Inch",
-  "DQA": "Data Quality Assessment",
-  "FOPH": "Federal Office of Public Health",
-  "GLN": "Global Location Number",
-  "ICDAR": "International Conference on Document Analysis and Recognition",
-  "OCR": "Optical Character Recognition",
-  "ReST": "Reading Seal Title",
-  "StaVer": "Stamp Verification",
-  "WAcc": "Word Accuracy",
-  "WER": "Word Error Rate",
-  "PNG": "Portable Network Graphics",
-  "EDI": "Federal Department of Home Affairs (Eidgenössisches Departement des Innern)",
-  "PDF": "Portable Document Format",
-  "NLP": "Natural Language Processing",
-  "CV": "Computer Vision",
-  "AHV": "Old-age and survivors insurance (Alters- und Hinterlassenenversicherung)",
-  "IV": "Invalidity insurance (Invalidenversicherung)",
-  "BFS": "Federal Statistical Office (Bundesamt für Statistik)",
   "CSV": "Comma-Separated Values",
-  "swisstopo": "Federal Office of Topography (Bundesamt für Landestopografie)",
-  "BAG": "Federal Office of Public Health (Bundesamt für Gesundheit)",
-  "ZSR": "Zahlstellenregister-Nummer",
 ))

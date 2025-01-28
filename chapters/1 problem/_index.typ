@@ -1,4 +1,5 @@
 #import "/template/_helpers.typ": title-caption
+#import "@preview/acrostiche:0.5.0": acr, acrfull
 
 = Problem, Research Question, Vision
 
@@ -6,7 +7,9 @@ This is a citation @AttentionIsAllYouNeed. #cite(<AttentionIsAllYouNeed>, form: 
 
 You can also link to headings @H:used_tools or @H:method, to tables @T:table and so on.
 
-footnotes are pretty easy as well#footnote[https://www.grammarly.com/]
+Footnotes are pretty easy as well#footnote[https://www.grammarly.com/].
+
+You can use acronyms like #acr("CSV") or #acrfull("CSV") for the full name. This then shows up in the list of abbreviations.
 
 == A Subsection
 
