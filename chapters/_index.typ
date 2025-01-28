@@ -1,0 +1,7 @@
+#include "1 problem/_index.typ"
+#include "2 research/_index.typ"
+#include "3 ideas/_index.typ"
+#include "4 methods/_index.typ"
+#include "5 implementation/_index.typ"
+#include "6 evaluation/_index.typ"
+#include "7 outlook/_index.typ"
