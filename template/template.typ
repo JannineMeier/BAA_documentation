@@ -198,13 +198,11 @@
       if it.level == 1 {
         v(16pt, weak: true)
 
-        strong(it.body)
+        strong(it.body())
         box(width: 1fr, repeat(" "))
-        strong(it.page)
+        strong(it.page())
       } else if it.level < 4 and it.element.has("supplement") {
         it
-      } else {
-        v(-3.175em)
       }
     }
 
