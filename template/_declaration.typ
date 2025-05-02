@@ -31,7 +31,7 @@
     [*Year of Graduation:*], [#graduation_date.display("[year]")],
     [*Main Advisor:*], [#advisor],
     [*External Expert:*], [#external_expert],
-    [*Industry partner/provider:*], [#industry_partner],
+    // [*Industry partner/provider:*], [#industry_partner],
   )
 
   [
@@ -49,7 +49,7 @@
     }
 
     *Declaration*\
-    I hereby declare that I have completed this thesis alone and without any unauthorized or external help. I further declare that all the sources, references, literature and any other associated resources have been correctly and appropriately cited and referenced. The confidentiality of the project provider (industry partner) as well as the intellectual property rights of the Lucerne University of Applied Sciences and Arts have been fully and entirely respected in completion of this thesis.
+    I hereby declare that I have completed this thesis alone and without any unauthorized or external help. I further declare that all the sources, references, literature and any other associated resources have been correctly and appropriately cited and referenced. The confidentiality of the Lucerne University of Applied Sciences and Arts have been fully and entirely respected in completion of this thesis.
 
     #stack(
       grid(align: bottom + center, columns: (1fr, 1fr))[

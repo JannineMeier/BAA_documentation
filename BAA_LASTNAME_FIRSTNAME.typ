@@ -10,14 +10,14 @@
 
 #import "/template/template.typ": template
 
-#let report_date = datetime(year: 2025, month: 1, day: 1)
+#let report_date = datetime(year: 2025, month: 6, day: 6)
 // If you want to have different dates for report, graduation and/or signature, change them here
 #let signature_date = report_date
 // Only the year is displayed for the graduation date
 #let graduation_date = report_date
 
 #let expression_content = [
-  I would like to thank my family, friends, and colleagues for their support and encouragement throughout the course of my studies. I would also like to express my gratitude to my advisor, Prof. Dr. Advisor, for his guidance and feedback on this thesis. Finally, I would like to thank Dr. External Expert for his valuable input and feedback on this work.
+  I would like to thank my family, friends, and colleagues for their support and encouragement throughout the course of my studies. I would also like to express my gratitude to my advisor, (PhD?) Christof Bless, for his guidance and feedback on this thesis. Finally, I would like to thank (Dr.?) Luca Baldassarre for his valuable input and feedback on this work.
 ]
 
 #let abstract_content = [
@@ -30,21 +30,21 @@
   // You MUST keep a trailing Scomma here, even if there is only one author
   authors: (
     (
-      name: "Lastname Firstname",
+      name: "Jannine Meier",
       address: "Suurstoffi 1, 6343 Risch-Rotkreuz",
-      email: "firstname.lastname@stud.hslu.ch",
+      email: "jannine.meier@stud.hslu.ch",
     ),
   ),
   university: "Lucerne University of Applied Sciences and Arts",
   division: "School of Computer Science and Information Technology",
   report_date: report_date,
-  advisor: "Prof. Dr. Advisor",
-  external_expert: "Dr. External Expert",
-  industry_partner: [Industry AG\ Some Person\ Somestreet 69\ 4269 Nice],
+  advisor: "PhD Candidate Christof Bless ?",
+  external_expert: "Dr. Luca Baldassarre ?",
+  industry_partner: [HSLU\ Some Person\ Somestreet 69\ 4269 Nice],
   degree_program: "BSc AI & ML",
   degree_program_full: "Bachelor of Science in Artificial Intelligence & Machine Learning",
   graduation_date: graduation_date,
-  confidential: true,
+  confidential: false,
   signature_date: signature_date,
   signature_place: "Risch-Rotkreuz",
   expression_content: expression_content,
