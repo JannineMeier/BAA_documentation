@@ -25,8 +25,8 @@
 ]
 
 #show: template.with(
-  title: "This is a title of a thesis",
-  subtitle: "This is a subtitle of a thesis",
+  title: "Detection of Fraud in Scientific Publications",
+  subtitle: "Bachelor Thesis FS25",
   // You MUST keep a trailing Scomma here, even if there is only one author
   authors: (
     (

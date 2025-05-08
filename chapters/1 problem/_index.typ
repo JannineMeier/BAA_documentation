@@ -11,19 +11,30 @@ Footnotes are pretty easy as well#footnote[https://www.grammarly.com/].
 
 You can use acronyms like #acr("CSV") or #acrfull("CSV") for the full name. This then shows up in the list of abbreviations.
 
-== Background and motivation
 
-#lorem(20)
+== Background and motivation 
+
+The foundation of science rests upon the integrity and reliability of its published literature, serving as a cumulative process where new discoveries build upon existing knowledge. However, this crucial foundation is increasingly threatened by the rise of fraudulent scientific publications. A significant driver of this problem is the intense pressure on researchers, academics, and students to publish their work in peer-reviewed journals for career advancement, such as tenure, promotion, and pay. This "publish or perish" culture creates an environment where some individuals may resort to questionable research practices (QRP) or outright fraud to meet performance expectations.
+
+The fraudulent landscape includes various forms of misconduct, such as the publication of nonsensical algorithmically generated papers, data fabrication and manipulation, image manipulation, citation manipulation, peer review manipulation, and the use of paper mills. Paper mills are organizations that produce and sell fraudulent or fabricated manuscripts and research components, often disguised as legitimate services. These articles, sometimes published by prestigious publishers, are dangerously unreliable. The emergence of advanced Artificial Intelligence (AI) writing capabilities and Large Language Models (LLMs) further exacerbates the challenge, enabling the quick fabrication of deceptive 'original' research that can evade detection by standard checks.
+This rise in fraudulent content has tangible and severe consequences. It undermines the credibility of academic publications and erodes public trust in science. Flawed or falsified findings, if undetected, can remain in the literature, misleading future research and wasting valuable time and resources. Such misconduct poses a major and ongoing challenge for the entire scholarly publishing industry and everyone who relies on the integrity of the scholarly record. Addressing this challenge requires proactive monitoring and analysis.
 
 == Importance of research integrity
-
-#lorem(20)
+Research integrity is paramount because the quality and credibility of future scientific results directly depend on the soundness of past published research. Science, as a cumulative process, requires a trustworthy foundation to build upon. When fraud occurs, it is highly damaging to the reputation of the entire scientific community, hinders scientific progress, and can have unpredictable consequences, especially in life-critical fields like medicine and public health. Maintaining research integrity is therefore essential for preserving the reliability of the scientific record and fostering public trust.
 
 == Objective of the thesis
-
-#lorem(20)
+Given the increasing threat posed by various forms of fraud and manipulation in scientific publications, the objective of this thesis is to investigate and evaluate automated methods for their detection. By analyzing the characteristics of fraudulent content, this research aims to contribute to the development or assessment of tools that can help identify suspicious publications and uphold research integrity.
 
 == Research questions
+
+This thesis aims to answer the following research questions:
+- What are the key characteristics and patterns observed in different types of fraudulent scientific publications, such as algorithmically generated text, paper mill products, and data manipulation?
+- How effectively can automated text-based methods, such as NLP techniques and machine learning classifiers, detect fraudulent content based on linguistic features and structural anomalies?
+- Can network-based analysis of scholarly data, such as author collaboration networks or citation patterns, reveal structural indicators of fraudulent activity?
+- How do different automated detection approaches compare in terms of performance, applicability, and scalability for identifying various forms of fraud in scientific literature?
+
+
+
 
 
 
