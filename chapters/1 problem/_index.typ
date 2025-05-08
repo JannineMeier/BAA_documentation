@@ -1,7 +1,7 @@
 #import "/template/_helpers.typ": title-caption
 #import "@preview/acrostiche:0.5.0": acr, acrfull
 
-= Problem, Research Question, Vision
+= Introduction
 
 This is a citation @AttentionIsAllYouNeed. #cite(<AttentionIsAllYouNeed>, form: "prose") also said, that this is an inline citation.
 
@@ -11,21 +11,20 @@ Footnotes are pretty easy as well#footnote[https://www.grammarly.com/].
 
 You can use acronyms like #acr("CSV") or #acrfull("CSV") for the full name. This then shows up in the list of abbreviations.
 
-== A Subsection
+== Background and motivation
 
 #lorem(20)
 
-=== A Subsubsection
+== Importance of research integrity
 
 #lorem(20)
 
-==== A Subsubsubsection
+== Objective of the thesis
 
 #lorem(20)
 
-===== A Subsubsubsubsection with no numbering
+== Research questions
 
-I wouldn't recommend going deeper than this.
 
 
 #figure(

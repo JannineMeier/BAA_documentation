@@ -1,4 +1,10 @@
 = Appendix
+
+== Full feature documentation and formulas
+== Hyperparameter configurations
+== Sample visualizations and charts
+== Links to code repositories and logs (e.g. W&B runs)
+
 == Used Tools<H:used_tools>
 
 During programming, the following tools were used:
