@@ -48,6 +48,8 @@ The Retraction Watch database includes over 100 distinct retraction reasons, wit
 
 Due to significant overlap between these categories (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling.
 
+#image("overlap splits.png")
+
 == Dataset Merging and Cleaning
 
 To build a robust and balanced dataset, I filtered the original retraction corpus to retain only papers with a non-empty abstract. After filtering, I obtained approximately *10,000 retracted papers* that met my criteria.
@@ -155,11 +157,11 @@ In addition to paper-level information, I collected extensive *author-level meta
 - *Institutional Affiliations* from both the specific authorship and the most recent known association,
 - *Topical Embeddings* via `x_concepts`, including concept IDs, display names, and relevance scores.
 
-The enriched metadata was later used to compute network-based features such as in-degree, out-degree, and PageRank. These features played a vital role in powering the graph-based models, particularly in the Graph Neural Network (GNN) framework.
+The enriched metadata was later used to compute network-based features such as in-degree, out-degree. These features played a vital role in powering the graph-based models, particularly in the Graph Neural Network (GNN) framework.I initially included PageRank as a network feature to capture the relative importance of each paper based on citation links. However, the computed values were extremely small with no meaningful variation across nodes. The maximum and minimum values differed only at the 18th decimal place. This indicates that the citation graph was too sparse or poorly connected for PageRank to provide useful insights. Due to its lack of variance and interpretability, I decided to exclude the PageRank feature from further analysis.
 
 The other author features had a lot of potential for model improvement. For example, the average citation activity of authors could help indicate their reputation, while the variety of research topics could hint at whether a paper was more specialized or broad. Similarly, institutional data could give insights into where retracted papers tend to come from.
 
-However, I wasn’t able to fully integrate all of this author-level data into my models due to time constraints. Features like citation trends over time or topic diversity would have required more pre-processing and aggregation. Although I did manage to use some basic citation-based features like in-degree, out-degree, and PageRank for my graph-based model, the more detailed author metadata wasn’t included in the final training pipeline.
+However, I wasn’t able to fully integrate all of this author-level data into my models due to time constraints. Features like citation trends over time or topic diversity would have required more pre-processing and aggregation. Although I did manage to use some basic citation-based features like in-degree, out-degree for my graph-based model, the more detailed author metadata wasn’t included in the final training pipeline.
 
 maybe in other section: Still, collecting this data was a useful step. It gave me a deeper understanding of what additional information could be useful for retraction prediction. Even though I didn’t use all of it in this version of the project, the enriched dataset is ready and could be used in future experiments to improve the results.
 
@@ -180,27 +182,35 @@ These were calculated by counting the number of entries in the fields `incoming_
 
 == Node Embeddings for the Citation Network
 
-To incorporate structural information from the citation network into my models, I generated **node embeddings** using the directed citation graph constructed from paper-to-paper references.
+To incorporate structural information from the citation network into my models, I generated *node embeddings* using the directed citation graph constructed from paper-to-paper references.
 
 Each node in the graph corresponds to a paper (identified by its DOI), and each directed edge represents a citation from one paper to another.
 
 The embedding pipeline followed these steps:
 
-1. **Graph Construction**
+1. *Graph Construction*
    A directed graph was built using the `networkx.DiGraph` class. Each node corresponds to a paper DOI, and directed edges were added from the citing paper to each of its cited papers. Invalid entries (e.g., malformed DOIs) were filtered out during construction.
 
-2. **Embedding Model Selection**
-   I used **ProNE**, a scalable and fast graph embedding model well-suited for large graphs. It was configured with 64-dimensional output vectors and trained on the full graph. Optionally, GGVec was considered as an alternative embedding algorithm, offering a good trade-off between quality and speed.
+2. *Embedding Model Selection*
+   I used ProNE, a scalable and fast graph embedding model well-suited for large graphs. It was configured with 64-dimensional output vectors and trained on the full graph. Optionally, GGVec was considered as an alternative embedding algorithm, offering a good trade-off between quality and speed.
 
-3. **Embedding Training**
+3. *Embedding Training*
    The model was trained directly on the citation graph to learn low-dimensional vector representations for each paper, capturing both structural and topological relationships.
 
-4. **Embedding Extraction and Storage**
+4. *Embedding Extraction and Storage*
    After training, embeddings were extracted and filtered to include only papers present in the modeling dataset. The final node embeddings were stored in `.pkl` format, and the trained model was also saved for reproducibility.
 
 These embeddings served as input features for models requiring a dense, vectorized representation of each paper's position in the citation network, such as GNN-based classifiers and hybrid ML pipelines.
 
+To explore the learned node embeddings, I applied t-SNE to reduce the 64-dimensional vectors to 2D. The resulting embeddings were visualized in scatterplots, colored by metadata attributes such as year, field, domain, and retraction status. This provided an intuitive overview of potential structure or clustering in the citation network.
 
+#image("emb by year.png")
+
+#image("emb by field.png")
+
+#image("emb by domain.png")
+
+#image("emb by retraction.png")
 
 == Metadata Thresholding & One-Hot Encoding for Rare Categories
 
@@ -312,7 +322,7 @@ A small number of papers in both classes are extreme outliers with very high cit
 
 On average, there does not appear to be a large difference between retracted and non-retracted papers in terms of citation counts alone.
 
-These insights indicate that while citation counts may carry some signal, especially in combination with network-based features like PageRank or citation patterns, they are not strong standalone indicators of retraction.
+These insights indicate that while citation counts may carry some signal, especially in combination with network-based features like citation patterns, they are not strong standalone indicators of retraction.
 
 Overall, this analysis helped validate that both splits reflect a consistent distribution of key writing and citation characteristics, and that the features chosen are diverse and potentially informative for downstream modeling tasks.
 
@@ -359,8 +369,6 @@ The selected features fall into the following main categories:
 
    - `incoming_citations_count`: Number of times the paper has been cited.
    - `outgoing_citations_count`: Number of references made by the paper.
-   - `pagerank`: A PageRank score computed from the citation network.
-     These features reflect the structural position of a paper within the scientific citation network.
 
 4. *Semantic Similarity Features*
    These features capture how semantically close the citing context or abstract of a paper is to the cited papers:
@@ -472,7 +480,7 @@ Based on the combination of *individual feature influence*, *group-level predict
 ==== Retained Feature Groups
 
 - *Citation Features*
-  (`incoming_citations_count`, `outgoing_citations_count`, `pagerank`) - check for pagerank
+  (`incoming_citations_count`, `outgoing_citations_count`) 
   These features demonstrated the strongest individual impact and yielded the highest group accuracy (0.958). They represent well-established network centrality concepts and generalize well across domains and time.
 
 - *Similarity Features*
@@ -518,7 +526,7 @@ Final Feature Groups (Total: 167 features, including target retracted)
   columns: 3,
   align: left,
   [Group], [Count], [Notes],
-  [Citation], [3], [`incoming_citations_count`, `outgoing_citations_count`, `pagerank`],
+  [Citation], [2], [`incoming_citations_count`, `outgoing_citations_count`],
   [Similarity], [4], [`mean_citation_context_to_cited_abstract_l2_-distance_y`, `mean_abstract_to_cited_abstract_l2_distance_y`, `max_-citation_context_to_cited_abstract_l2_distance_y`, `max_abstract_to_cited_abstract_l2_distance_y`],
   [Handcrafted Abstract], [30], [Features from abstract text, prefixed with `hc_`],
   [Handcrafted Fulltext], [30], [Full-text features, prefixed with `hc_ft_`],
@@ -529,6 +537,93 @@ Final Feature Groups (Total: 167 features, including target retracted)
   [Year], [1], [Continuous year feature (standardized)],
   [Target], [1], [`retracted` (binary label)]
 )
+
+
+== 6.3 Significance Testing of Different Text Fields
+
+To assess which textual components are most informative for predicting retractions, I conducted significance testing using a standard fine-tuned transformer model (`distilbert-base-uncased`) on three separate fields: `Abstract`, `FullText`, and `metadata_sentences`. The goal was to evaluate their individual predictive power with regard to the retraction label using consistent training and evaluation settings.
+
+The model was fine-tuned on each field separately using 5 different random seeds to ensure robustness. Each training run used a stratified 80/20 train-test split, and evaluation was based on classification accuracy.
+
+*Final Results*
+
+| Field               | Mean Accuracy | Std Accuracy | Num Samples |
+| ------------------- | ------------- | ------------ | ----------- |
+| metadata\_sentences | 1.0000        | 0.0000       | 16,808      |
+| Abstract            | 0.9164        | 0.0026       | 16,808      |
+| FullText            | 0.7526        | 0.0011       | 16,808      |
+
+---
+
+*Interpretation of Results*
+
+1. *`metadata_sentences` (Accuracy = 1.0000)* ???
+   This result is unexpectedly perfect — the model achieved 100% accuracy with 0 variance across seeds. Upon manual inspection of the field, it became evident that `metadata_sentences` contains only descriptive information such as the country, institution, date, and scientific domain. It does not include any direct reference to retraction status, misconduct, or results.
+   This suggests that the model is likely relying on **strong correlations between metadata and the label**, for example, certain countries or institutions being overrepresented in the retracted subset. While technically effective in this dataset, this result is misleading and likely reflects **label leakage** through non-generalizable metadata. Thus, this field should be excluded from text-based fraud detection tasks or analyzed separately as a metadata-based approach.
+
+   
+📄 Sample 2857
+Label: NOT RETRACTED
+Metadata Sentences:
+This paper was written on 01/21/2021 00:00 in Germany, at German Center for Diabetes Research (DZD), Neuherberg, Germany;Institute of Diabetes Research and Metabolic Diseases (IDM), the Helmholtz Center, Munich, Germany, in the domain of Health Sciences, covering the field of Medicine.
+
+📄 Sample 4398
+Label: RETRACTED
+Metadata Sentences:
+This paper was written on 3/25/2021 0:00 in India, at Department of Computer Science & Engineering, Sri Krishna College of Technology, Kovaipudur, Coimbatore, Tamil Nadu, India, in the domain of Physical Sciences, covering the field of Computer Science.
+
+📄 Sample 8280
+Label: RETRACTED
+Metadata Sentences:
+This paper was written on 2/20/2019 0:00 in China, at Department of Traditional Chinese and Western Oncology, the First Affiliated Hospital of Anhui Medical University, No 120 Wanshui Road, High-tech Zone, Hefei 230088, Anhui, China;, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
+
+📄 Sample 8995
+Label: RETRACTED
+Metadata Sentences:
+This paper was written on 7/2/2022 0:00 in China, at Constrution Project Office of Wuchang Lalin River Section of Tieke Expressway, Harbin, Heilongjiang 150001, China;, in the domain of Physical Sciences, covering the field of Engineering.
+
+📄 Sample 9689
+Label: RETRACTED
+Metadata Sentences:
+This paper was written on 11/11/2021 0:00 in China, at Second Department of Spleen and Stomach Diseases, Gansu Provincial Hospital of Traditional Chinese Medicine, Lanzhou City 730050, Gansu, China; Department of Anorectal Diseases, Gansu Provincial Hospital of Traditional Chinese Medicine, Lanzhou City 730050, China;, in the domain of Health Sciences, covering the field of Medicine.
+
+📄 Sample 1035
+Label: NOT RETRACTED
+Metadata Sentences:
+This paper was written on 07/12/2019 00:00 in United States, at Howard Hughes Medical Institute Research Laboratory, Seattle, USA;Basic Sciences Division, Fred Hutchinson Cancer Research Center, 1100 Fairview Ave N, Seattle, WA, 98109, USA;Scientific Computing, Fred Hutchinson Cancer Research Center, 1100 Fairview Ave N, Seattle, WA, 98109, USA, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
+
+📄 Sample 11588
+Label: NOT RETRACTED
+Metadata Sentences:
+This paper was written on 09/08/2012 00:00 in United States, at Broad Institute of Harvard and Massachusetts Institute of Technology , Cambridge, Massachusetts 02142;Department of Genetics , Harvard Medical School, Boston, Massachusetts 02115;Affymetrix , Inc., Santa Clara, California 95051, in the domain of Physical Sciences, covering the field of Earth and Planetary Sciences.
+
+📄 Sample 7099
+Label: NOT RETRACTED
+Metadata Sentences:
+This paper was written on 06/27/2012 00:00 in China;United States, at 1 Division of Biostatistics, Dan L. Duncan Cancer Center and 2Department of Molecular and Cellular Biology, Baylor College of Medicine, Houston, TX 77030, USA and 3State Key Laboratory of Bioelectronics, School of Biological Science and Medical Engineering, Southeast University, Nanjing, China, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
+
+📄 Sample 10250
+Label: NOT RETRACTED
+Metadata Sentences:
+This paper was written on 01/01/2021 00:00 in China, at School of Computer Science and Engineering, Sun Yat-sen University, China, in the domain of Physical Sciences, covering the field of Computer Science.
+
+📄 Sample 1356
+Label: RETRACTED
+Metadata Sentences:
+This paper was written on 4/4/2012 0:00 in United Kingdom, at Wolfson Institute for Biomedical Research; MRC Laboratory for Molecular Cell Biology and Department of Neuroscience, Physiology and Pharmacology University College London, London WC1E 6BT, UK;, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
+
+
+2. *`Abstract` (Accuracy = 91.6%)*
+   The abstract field achieved high accuracy with low variance, making it the most reliable textual field for retraction prediction. This suggests that abstracts often contain subtle linguistic or content-based cues related to the quality or credibility of the paper. Unlike `metadata_sentences`, the abstract reflects the scientific reasoning and findings of the authors and is less likely to introduce unwanted biases. For this reason, the abstract was used as the primary text input for the deep learning approach in subsequent experiments.
+
+3. *`FullText` (Accuracy = 75.3%)*
+   The full-text field performed significantly worse than the abstract, despite theoretically containing more information. Several factors likely contributed to this: (1) longer texts were truncated to 256 tokens, potentially cutting off important information; (2) full texts are more variable in structure and may contain large sections unrelated to the scientific core (e.g., boilerplate methods or acknowledgements); and (3) there may be more noise and formatting inconsistencies. These results suggest that using the full text without further preprocessing (e.g., section extraction or summarization) is suboptimal in this context.
+
+*Conclusion*
+
+These findings highlight that not all text fields are equally informative for fraud detection. While metadata fields may allow near-perfect prediction within the current dataset, such results are likely driven by bias and label leakage. In contrast, abstracts strike a strong balance between informativeness and generalizability, making them a reliable input for building robust and explainable models.
+
+
 
 
 
