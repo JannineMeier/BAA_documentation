@@ -48,7 +48,9 @@ The Retraction Watch database includes over 100 distinct retraction reasons, wit
 
 Due to significant overlap between these categories (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling.
 
-#image("overlap splits.png")
+
+#image("overlap splits.png", width: 200pt)
+
 
 == Dataset Merging and Cleaning
 
@@ -204,11 +206,11 @@ These embeddings served as input features for models requiring a dense, vectoriz
 
 To explore the learned node embeddings, I applied t-SNE to reduce the 64-dimensional vectors to 2D. The resulting embeddings were visualized in scatterplots, colored by metadata attributes such as year, field, domain, and retraction status. This provided an intuitive overview of potential structure or clustering in the citation network.
 
-#image("emb by year.png")
+#image("emb by year.png", width: 200pt)
 
-#image("emb by field.png")
+#image("emb by field.png", width: 200pt)
 
-#image("emb by domain.png")
+#image("emb by domain.png", width: 200pt)
 
 #image("emb by retraction.png")
 
@@ -247,6 +249,8 @@ If some parts of the metadata were missing, I just left them out or replaced the
 This approach allowed me to give the models extra context without changing their architecture. It also made it possible to use metadata in the same way as the abstract or introduction — as text that the model could read and learn from.
 
 == Similarity Score Features
+https://github.com/Christof93/citation_semantic_congruence
+to do: neu schreiben und evtl grafik hinzufügen
 As part of the dataset, I also included several similarity-based features that were developed by Christof. These features aim to measure how similar the content of a paper is to the papers it cites. This can help detect cases of copied text, minimal paraphrasing, or even automatically generated content that heavily borrows from previous work.
 
 The similarity scores are based on the L2 (Euclidean) distance between sentence embeddings. These embeddings are vector representations of texts like abstracts or citation contexts. A lower distance means that the two texts are more similar in meaning and language.
@@ -350,7 +354,7 @@ The visualization also showed that the entity distributions were largely consist
 
 == Feature Selection and Significance Analysis for Logistic Regression
 
-To identify which input features meaningfully contribute to the prediction of retracted scientific publications, I conducted a thorough feature selection and significance evaluation on my train dataset using logistic regression. Since logistic regression relies on numerical and interpretable features and is sensitive to multicollinearity, careful preprocessing and feature grouping were essential steps before conducting any statistical analysis.
+To identify which input features meaningfully contribute to the prediction of retracted scientific publications (neben tfidf von textstpcken), I conducted a thorough feature selection and significance evaluation on my train dataset using logistic regression. Since logistic regression relies on numerical and interpretable features and is sensitive to multicollinearity, careful preprocessing and feature grouping were essential steps before conducting any statistical analysis.
 
 === Feature Types Considered
 
@@ -513,11 +517,12 @@ Based on the combination of *individual feature influence*, *group-level predict
 - *Author Binaries (except top 10)*
   The dataset originally included over 100 binary features indicating the presence of specific authors in a given paper. While a small subset of these features—such as those corresponding to known fraudsters like Joachim Boldt or Yoshitaka Fujii—exhibited strong and stable coefficients, the overall group achieved low predictive performance (mean accuracy of 0.546 when used alone). The main limitations of these features are twofold. First, their distribution is extremely sparse, with many authors occurring only once or twice. This encourages overfitting, as the model may learn to associate retractions with specific individuals rather than generalizable patterns. Second, reliance on known author identities hinders the model’s ability to flag retractions by previously unseen or future authors—an essential requirement for a robust detection system. For these reasons, only the ten most influential authors (based on mean coefficient magnitude and t-like score) were retained. All remaining author-level features were excluded to reduce dimensionality and mitigate overfitting.
   
-- *Institution Binaries (except top 2)*
+- *Institution Binaries*
   Institution-level features were initially included as over 50 binary indicators for the most common affiliations. However, this feature group performed the worst in standalone evaluations, with a mean accuracy of just 0.525. Most institutions appeared only a few times in the dataset, making them statistically weak predictors. Additionally, institutional affiliation alone is not a consistent or reliable proxy for paper quality or retraction risk. In many cases, its influence is already captured by other features such as citation metrics. Including these sparse binary variables would increase model complexity and potentially reduce generalization to new or unseen data. As a result, all institution binaries were removed from the final logistic regression feature set.
 
 - *Field and Domain Dummies*
   Although theoretically relevant, these features had limited predictive power in practice. When evaluated in isolation, the groups achieved a mean accuracy of only 0.553. Additionally, their broad categorization failed to capture the nuances between subfields, and their effect overlapped substantially with other features such as textual structure and semantic embeddings. Given their redundancy, low granularity, and weak model performance, all field and domain variables were excluded from the final feature set.
+
 
 Final Feature Groups (Total: 167 features, including target retracted)
 
@@ -546,20 +551,17 @@ To assess which textual components are most informative for predicting retractio
 The model was fine-tuned on each field separately using 5 different random seeds to ensure robustness. Each training run used a stratified 80/20 train-test split, and evaluation was based on classification accuracy.
 
 *Final Results*
-
-| Field               | Mean Accuracy | Std Accuracy | Num Samples |
-| ------------------- | ------------- | ------------ | ----------- |
-| metadata\_sentences | 1.0000        | 0.0000       | 16,808      |
-| Abstract            | 0.9164        | 0.0026       | 16,808      |
-| FullText            | 0.7526        | 0.0011       | 16,808      |
-
----
+#table(
+  columns: 3,
+  align: left,
+  [Field], [Mean Accuracy], [Std Accuracy], [`metadata_sentences`], [1.0000], [0.0000], [`Abstract`],[0.9164], [0.0026], [`FullText `], [0.7526], [0.0011], 
+)
 
 *Interpretation of Results*
 
 1. *`metadata_sentences` (Accuracy = 1.0000)* ???
    This result is unexpectedly perfect — the model achieved 100% accuracy with 0 variance across seeds. Upon manual inspection of the field, it became evident that `metadata_sentences` contains only descriptive information such as the country, institution, date, and scientific domain. It does not include any direct reference to retraction status, misconduct, or results.
-   This suggests that the model is likely relying on **strong correlations between metadata and the label**, for example, certain countries or institutions being overrepresented in the retracted subset. While technically effective in this dataset, this result is misleading and likely reflects **label leakage** through non-generalizable metadata. Thus, this field should be excluded from text-based fraud detection tasks or analyzed separately as a metadata-based approach.
+   This suggests that the model is likely relying on *strong correlations between metadata and the label*, for example, certain countries or institutions being overrepresented in the retracted subset. While technically effective in this dataset, this result is misleading and likely reflects *label leakage* through non-generalizable metadata. Thus, this field should be excluded from text-based fraud detection tasks or analyzed separately as a metadata-based approach.
 
    
 📄 Sample 2857

@@ -50,19 +50,3 @@ Fraud detection in scientific publications encompasses multiple approaches:
 
 It is widely suggested that no single automated solution is sufficient on its own; these tools should be used as screening processes to highlight potential "red flags" that trigger deeper human investigation and discussion with the authors. This process will not prevent fraudulent behaviour entirely but aims to make it riskier and more difficult for fraudsters.
 
-As you can see, figure numbers are automatically generated according to the chapter they are in:
-#figure(
-  table(
-    columns: 2,
-    table.header(
-      [Header 1],
-      [Header 2],
-    ),
-
-    [Row 1, Column 1], [Row 1, Column 2],
-  ),
-  caption: title-caption(
-    [This is a table caption title],
-    [This is a realllllllllllllllllllllllllllllllllllllllly long table caption body. This is not shown in the list of figures.],
-  ),
-)<T:table2>
