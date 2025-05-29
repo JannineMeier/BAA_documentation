@@ -22,3 +22,20 @@ In this work, Year was retained for exploratory modeling and interpretability pu
 == Future Work
 === Suggestions for future research directions
 === Potential applications in research oversight and ethics
+
+
+== possible improvements
+
+
+In addition to paper-level information, I collected extensive *author-level metadata* for each listed contributor:
+
+- *OpenAlex Author ID and ORCID* (if available),
+- *Works Count and Citation Count* (overall and per year),
+- *Institutional Affiliations* from both the specific authorship and the most recent known association,
+- *Topical Embeddings* via `x_concepts`, including concept IDs, display names, and relevance scores.
+
+The other author features had a lot of potential for model improvement. For example, the average citation activity of authors could help indicate their reputation, while the variety of research topics could hint at whether a paper was more specialized or broad. Similarly, institutional data could give insights into where retracted papers tend to come from.
+
+However, I wasn’t able to fully integrate all of this author-level data into my models due to time constraints. Features like citation trends over time or topic diversity would have required more pre-processing and aggregation. Although I did manage to use some basic citation-based features like in-degree, out-degree for my graph-based model, the more detailed author metadata wasn’t included in the final training pipeline.
+
+maybe in other section: Still, collecting this data was a useful step. It gave me a deeper understanding of what additional information could be useful for retraction prediction. Even though I didn’t use all of it in this version of the project, the enriched dataset is ready and could be used in future experiments to improve the results.

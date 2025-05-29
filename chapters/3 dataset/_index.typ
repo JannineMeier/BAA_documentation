@@ -4,7 +4,7 @@
 
 = Data Sources and Preprocessing
 
-== Description of Data Sources
+== Dataset Construction
 
 As the foundation for this thesis, I adopted and extended the dataset from the structured corpus developed in *Analyzing the Evolution of Scientific Misconduct based on the Language of Retracted Papers"* @blessetal.AnalyzingEvolutionScientific2025. The original corpus integrates two critical data sources:
 
@@ -14,21 +14,40 @@ As the foundation for this thesis, I adopted and extended the dataset from the s
 
 By combining these sources, #cite(<blessetal.AnalyzingEvolutionScientific2025>, form: "prose") enabled systematic analysis of linguistic patterns in retracted papers, which this project further expands.
 
-The original dataset was constructed by merging Retraction Watch entries with corresponding OpenAlex metadata, resulting in \~30k unique retracted articles, of which \~19k had usable abstracts. Content-rich sections such as Introduction, Methods, and Conclusion were already extracted in the original dataset. These were identified using regular expression-based heuristics applied to the full text and labeled accordingly. I reused these pre-labeled sections without modifying the paragraph segmentation, and focused primarily on the Abstract for my core experiments.
+The original dataset was constructed by merging Retraction Watch entries with corresponding OpenAlex metadata, resulting in \~30k unique retracted articles, of which \~19k had usable abstracts. Content-rich sections such as Introduction, Methods, and Conclusion were already extracted in the original dataset. These were identified using regular expression-based heuristics applied to the full text and labeled accordingly. I reused these pre-labeled sections without modifying the paragraph segmentation, and focused primarily on the Abstract for my core experiments  due to  consistent availability and conciseness.
 
-I adopted this dataset structure and used it as the basis for my own data pipeline. From the initial dataset, I focused solely on papers with available *abstracts*, ensuring a consistent text base for my experiments. I additionally extracted and retained metadata fields for each paper. Many metadata fields (e.g., Author, Institution, Country) were stored as semicolon-separated strings containing multiple entries per paper. Metadata fields include:
 
-- `Field`, `Country`, and `Domain`: Broad categorization of the research.
-- `OriginalPaperDOI` and `OriginalPaperDate`: Identifiers and timestamps.
-- `Author`, `Institution`, `Language`: Contextual and attributional data.
-- `Abstract`, `Introduction`, `Methods`, `Related Work`, `Result & Discussion`, `Conclusion`: Content-rich sections used for further feature extraction.
-- `retracted`: Label indicating whether the paper has been retracted.
+=== Filtering and Balancing
 
-Many metadata fields (e.g., Author, Institution, Country) were stored as semicolon-separated strings containing multiple entries per paper. 
+To ensure a clean, task-relevant dataset:
 
-To establish a binary classification task, I selected only papers with a complete abstract and labeled them as either retracted due to scientific *fraud* or *non-retracted*. The binary classification label (scientific fraud vs. non-retracted) was created based on a curated subset of Retraction Watch categories, as detailed in @labeling. Abstracts were selected as the core text input due to their concise summarization of a paper’s content, near-universal availability, and reduced risk of structural noise compared to full texts. 
+- Retracted Papers: I first filtered the retracted paper corpus to retain only entries with a non-empty abstract. Abstracts were required as they serve as the primary input for most of my models. This step resulted in approximately 10,000 retracted papers.
 
-== Retraction Reason Selection and Labeling <labeling>
+- Non-Retracted Papers: I randomly downsampled the reference set from #cite(<blessetal.AnalyzingEvolutionScientific2025>, form: "prose")) to obtain approximately 10,000 non-retracted papers. These papers were originally selected by the authors based on high citation counts across matching years and fields, under the assumption that frequently cited articles are less likely to be retracted and can serve as a reliable comparison group.
+
+
+
+=== Labeling Strategy
+
+Retraction Watch includes over 100 retraction reasons, often overlapping (see @labeloverlap). For binary classification (fraud vs. non-retracted), I defined fraud as intentional misconduct (e.g., "Fake Peer Review," "Fabricated Data"), excluding ambiguous or procedural issues (see @labeling for categories). Papers with any fraud-related reason were labeled as fraud; non-retracted papers formed the negative class.
+
+
+
+=== Metadata Retention
+The dataset preserves metadata fields such as:
+
+- Field, Country, Domain: Research categorizations.
+
+- Author, Institution: Semicolon-separated collaboration data.
+
+- OriginalPaperDate, retracted: Temporal and label data.
+
+I decided to drop the Language column because almost all the papers are written in English (over 99%). There are only a few entries in other languages, like German or French, which isn't enough to be useful for training a model. Keeping this feature would just add unnecessary noise, so I removed it to keep things cleaner and more focused.
+
+Processing details for metadata features follow in @feature_eng
+
+
+=== Retraction Reason Selection and Labeling <labeling>
 
 The Retraction Watch database includes over 100 distinct retraction reasons, with each paper potentially associated with multiple labels. For this project, I manually defined a subset of retraction reasons indicative of *scientific fraud* and grouped them into the following categories. I chose these categories because they clearly involve intentional deception, manipulation, or serious misconduct. This sets them apart from cases that might just involve mistakes (like data loss or plagiarism) or procedural problems (like disputes about authorship). The goal was to focus specifically on types of fraud that seriously threaten the integrity of scientific research.
 
@@ -67,45 +86,31 @@ The Retraction Watch database includes over 100 distinct retraction reasons, wit
   )
 )
 
-Due to significant overlap between these categories as seen in @labeloverlaps (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling. Note that many papers were associated with multiple retraction reasons; for binary labeling, papers matching at least one fraud-related reason were marked as scientific fraud. Papers with no fraud-related labels and no retraction were treated as non-retracte}.
+Due to significant overlap between these categories as seen in @labeloverlap (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling.
 
 
 #figure(
-  image("/images/overlap splits.png", width: 50%),
+  image("/images/overlap_labels.png", width: 50%),
   caption: title-caption(
     [Overlap Between Retraction Reason Categories],
     [Overlap Between Retraction Reason Categories in the Retraction Watch Database],
   )
-)<labeloverlaps>
+)<labeloverlap>
 
-continue hereeee
+// heeeeeeeeeeeeeeeere
+== Feature Extraction and Engineering<feature_eng>
 
+To support diverse modeling approaches, I extracted and engineered features from three data modalities: metadata, text, and citation structure. Each feature type was designed to capture distinct signals relevant to retraction prediction.
 
-== Dataset Merging and Cleaning
-
-To build a robust and balanced dataset, I filtered the original retraction corpus to retain only papers with a non-empty abstract. After filtering, I obtained approximately *10,000 retracted papers* that met my criteria.
-
-To create a comparable non-retracted sample, I drew articles from OpenAlex’s *most-cited publications* across various domains. The idea was to match the topical and temporal distribution of retracted papers while minimizing the risk of including soon-to-be-retracted or suspicious articles. 
-
-I randomly downsampled this reference set to obtain *approximately 10,000 non-retracted papers*.
-
-
-== Feature Extraction and Engineering
-
-Depending on the modeling approach, I extracted and engineered a range of features from both text and metadata. 
-
-=== Dropped Features from Original Dataset
-
-I decided to drop the Language column because almost all the papers are written in English (over 99%). There are only a few entries in other languages, like German or French, which isn't enough to be useful for training a model. Keeping this feature would just add unnecessary noise, so I removed it to keep things cleaner and more focused.
 
 === Adjusted Features from Original Dataset
-In the course of preparing the dataset for model training, I paid particular attention to the metadata fields Author, Institution, and Country. These fields originally consisted of semicolon-separated strings, often containing multiple entries per paper. For example, a single entry in the Author column could list several names as "Derek C. Angus;Tom van der Poll", or the Country field might combine "Netherlands;United States". While this format is human-readable, it is not suitable for use in machine learning models—especially not for linear models like logistic regression that rely on clearly defined, numerical input features.
+In the course of preparing the dataset for model training, I paid particular attention to the metadata fields Author, Institution, and Country. These fields originally consisted of semicolon-separated strings, often containing multiple entries per paper. For example, a single entry in the Author column could list several names as "Derek C. Angus;Tom van der Poll", or the Country field might combine "Netherlands;United States". While human-readable, this format is unsuitable for machine learning models that require structured, numerical inputs.
 
 The main issue with these fields in their original format is that they are both unordered and highly variable in length. The order in which authors or institutions appear does not carry meaningful information, and treating the entire string as a categorical variable would result in an excessive number of unique, sparsely repeated combinations. Moreover, standard encoding techniques like one-hot encoding or label encoding are ill-suited for such long-tail, high-cardinality text data. Therefore, in order to extract useful signal from these metadata fields while keeping the dataset interpretable and model-friendly, I decided to transform them into structured, count-based, and frequency-aware features.
 
 I began by calculating the number of authors, institutions, and countries listed per paper. These new features (num_authors, num_institutions, and num_countries) serve as simple but informative indicators of collaboration scope or international involvement. In particular, I assumed that the number of authors or contributing institutions might correlate with factors like research quality or interdisciplinary character, which could in turn influence the likelihood of retraction.
 
-Beyond the counts, I also wanted to capture information about the presence of specific authors, institutions, or countries—especially those that appear frequently across the dataset. To achieve this, I identified the most common entries in each category: the top 100 authors, the top 50 institutions, and the top 20 countries. For each of these, I created binary indicator features that denote whether the corresponding entity is involved in a given paper. This approach allows the model to learn patterns related to well-known or prolific contributors without relying on raw textual identifiers.
+Beyond the counts, I also wanted to capture information about the presence of specific authors, institutions, or countries—especially those that appear frequently across the dataset. To achieve this, I identified the most common entries in each category: the top 100 authors, the top 50 institutions, and the top 20 countries. For each of these, I created binary indicator features that denote whether the corresponding entity is involved in a given paper. This approach allows the model to learn patterns related to well-known or prolific contributors without relying on raw textual identifiers. The thresholds (top 100 authors, 50 institutions, 20 countries) were chosen to balance coverage and model complexity.
 
 Given the long tail of rare or unique entries, I also introduced an “Other” category in each group to flag cases where none of the top entries were present. This ensures that all papers are represented within the new feature set, even if they involve lesser-known authors or institutions.
 
@@ -115,17 +120,17 @@ Overall, this feature engineering step helped convert raw metadata into meaningf
 === Text-Based Features
 
 - *TF-IDF Vectors*: Created from the `Abstract` section to represent term frequency patterns.
-- *Sentence Embeddings*: Derived using pre-trained transformer models (e.g., DeBERTa) to capture semantic structure and meaning. (?)
+- *Sentence Embeddings*: Derived using pre-trained transformer models from the sentence-transformers library, specifically using microsoft/deberta-v3-small. 
 
 === Handcrafted Text-Based Features
 
-In addition to embeddings and metadata, I created a large set of handcrafted features to capture different characteristics of the text in a more interpretable way. These features were designed to reflect writing style, structure, and linguistic patterns that could help distinguish between retracted and non-retracted papers.
+In addition to embeddings and metadata, I engineered a diverse set of handcrafted features to capture different characteristics of the text in a more interpretable way. These features were designed to reflect writing style, structure, and linguistic patterns that could help distinguish between retracted and non-retracted papers.
 
 The features were extracted from two main text sources:
 - *the abstract*
-- *the full text*, which I generated by concatenating the sections Introduction, Related Work, Methods, Result&Discussion, and Conclusion
+- *the full text*, which I generated by concatenating the labeled content sections (Abstract, Introduction, Related Work, Methods, Result & Discussion, and Conclusion) from the dataset.
 
-To process the texts, I used tokenization from the nltk library and regular expressions for pattern matching. I also removed stopwords using the default English stopword list from nltk.
+To process the texts, I used tokenization from the NLTK library and regular expressions for pattern matching. I also removed stopwords using NLTK's built-in stopwords.words('english') list.
 
 The handcrafted features included a total of 30 abstract-based features and 30 full-text-based features, each prefixed accordingly (hc_ for abstract, hc_ft_ for full text). 
 
@@ -139,106 +144,142 @@ Examples of the extracted features include:
 - *Syntactic and stylistic markers*
   Like the number of passive-voice patterns, negations (e.g., “not”, “never”), modal verbs (e.g., “might”, “could”), and personal pronouns (“I”, “we”).
 
-  *Lexical and punctuation features*
+- *Lexical and punctuation features*
   Such as lexical density, number of questions, exclamations, quotes, commas, colons, semicolons, periods, and use of adverbs as a proxy for adjective or descriptive style.
 
 - *Word length ratios*
   For example, the ratio of long words (more than 6 characters) and short words (3 characters or less).
 
-All features were computed using custom Python functions with nltk and re, and stored in a pandas DataFrame. To make them usable for machine learning models, I applied standardization using StandardScaler from scikit-learn. This step ensures that all features are on the same scale, which is especially important when combining them with other numeric inputs like citation counts or similarity scores.
+All features were computed using custom Python functions and stored in a pandas DataFrame. To make them usable for machine learning models, I applied standardization using StandardScaler from scikit-learn. This step ensures that all features are on the same scale, which is especially important when combining them with other numeric inputs like citation counts or similarity scores.
 
-In total, each paper was represented by 60 handcrafted features: 30 from the abstract and 30 from the full text. These features were then saved into the final dataset for further analysis and model training.
+In total, each paper was represented by 60 handcrafted features: 30 from the abstract and 30 from the full text. These features were then saved into the final dataset for further analysis and model training.A full list and description of all handcrafted text-based features can be found in @T:featuredescription.
 
-=== Metadata Features (?)
+#figure(
+  table(
+    columns: 2,
+    table.header(
+      [Feature Name],
+      [Description],
+    ),
 
-- Author-related: number of authors, affiliations, corresponding author country.
-- Article-related: publication year, field/domain, institution type.
-- Language and country distribution.
+    [hc_00_char_count], [Total number of characters in the text],
+    [hc_01_word_count], [Total number of words in the text],
+    [hc_02_avg_word_len], [Average word length in the text],
+    [hc_03_stopword_count], [Number of stopwords in the text],
+    [hc_04_stopword_ratio], [Ratio of stopwords to total words],
+    [hc_05_sentence_count], [Number of sentences in the text],
+    [hc_06_avg_sentence_length], [Average number of words per sentence],
+    [hc_07_type_token_ratio], [Type-token ratio (vocabulary richness)],
+    [hc_08_uppercase_ratio], [Ratio of uppercase characters],
+    [hc_09_digit_ratio], [Ratio of digits to total characters],
+    [hc_10_special_char_ratio], [Ratio of special characters],
+    [hc_11_passive_like], [Count of passive-like verb phrases],
+    [hc_12_negation_count], [Number of negation words],
+    [hc_13_modal_verb_count], [Number of modal verbs],
+    [hc_14_pronoun_we_count], [Occurrences of 'we'],
+    [hc_15_pronoun_i_count], [Occurrences of 'I'],
+    [hc_16_certainty_word_count], [Count of certainty words (e.g., 'always')],
+    [hc_17_hedge_word_count], [Count of hedge words (e.g., 'might', 'seems')],
+    [hc_18_lexical_density], [Ratio of content words to total words],
+    [hc_19_question_count], [Number of question marks],
+    [hc_20_exclamation_count], [Number of exclamation marks],
+    [hc_21_quote_count], [Number of quotation marks],
+    [hc_22_comma_count], [Number of commas],
+    [hc_23_colon_count], [Number of colons],
+    [hc_24_semicolon_count], [Number of semicolons],
+    [hc_25_adj_count], [Number of adverbs (words ending in -ly)],
+    [hc_26_avg_token_length], [Average token length],
+    [hc_27_long_word_ratio], [Ratio of words with more than 6 characters],
+    [hc_28_short_word_ratio], [Ratio of words with 3 or fewer characters],
+    [hc_29_period_count], [Number of periods in the text],
+  ),
+  caption: title-caption(
+    [Overview of 30 Handcrafted Linguistic Features],
+    [Each feature was computed for both abstract (`hc_`) and full text (`hc_ft_`) versions to quantify structure, syntax, and style for each paper.],
+  ),
+)<T:featuredescription>
 
-=== Network-Based Features (?)
 
-For my *GNN models*, I further enriched the dataset with *graph-based features*, including:
 
-- *Citation Counts*: In-degree and out-degree from the citation graph.
-- *Author Metrics*: Aggregated publication and citation counts per author.
-- *Node Embeddings*: Using *Node2Vec* trained on the citation graph to capture structural relationships among papers.
+// === Metadata Features
+
+//- OriginalPaperDate: Used to extract the publication year of each article. This temporal metadata allows for time-based comparisons, and could reveal shifts in fraud prevalence or detection over time.
+//- Country: Based on author affiliations. For multi-country papers, all countries listed were retained and used to generate indicators (e.g., number of countries, presence of top countries).
+//- Institution: Captures the organizations listed in the paper. From this field, derived features included the number of institutions per paper and binary indicators for top institutions, as described earlier.
+//- Domain and Field: These represent broader and more specific research areas, respectively (e.g., Domain: Medicine; Field: Oncology). They help account for domain-specific language patterns and publication norms.
+//- Author: Used to extract author count, as well as indicators for presence of frequent authors (top 100). Also forms the basis for author-related features used in the GNN setup.
+
+//All metadata features were either one-hot encoded (for categorical variables such as country or field) or standardized (for numeric values such as publication year or author count) before being fed into the classifiers as described in @onehot.
 
 
 == Additional Metadata Enrichment via OpenAlex API
 
-To extend the initial dataset with more detailed structural and contextual information, I implemented a custom asynchronous crawler leveraging the [OpenAlex API](https://openalex.org/). This enrichment step was critical for supplying additional input features to my models — especially those relying on citation networks, authorship metadata, and paper connectivity.
+To extend the initial dataset with more detailed structural and contextual information, I implemented a custom asynchronous crawler leveraging the OpenAlex API (https://openalex.org/). This enrichment step was critical for supplying additional input features to my models.
 
-In order to query OpenAlex at scale and avoid throttling issues, I registered and used a *personal API key*, which granted me higher rate limits and ensured reliable access to the required endpoints.
+To ensure stable and high-throughput access, I registered and used a personal API key. This granted increased rate limits and allowed for robust large-scale querying.
 
-For each paper in the dataset (based on its DOI), the crawler retrieved:
+For each paper in the dataset (identified by its DOI), the crawler retrieved:
 
-- *Cited-by Count*: The number of papers citing the target article.
-- *Outgoing Citations*: A list of DOIs representing all works the article references.
-- *Incoming Citations*: A list of OpenAlex records (with IDs, DOIs, and titles) for all articles that cite the target paper. These were retrieved via paginated queries and merged to ensure full coverage.
+- Outgoing citations: A list of DOIs representing all works referenced by the article.
+- Incoming citations: A list of OpenAlex records (IDs, DOIs, titles) for all articles that cite the target paper. These were retrieved via paginated queries and merged for full coverage.
 
-In addition to paper-level information, I collected extensive *author-level metadata* for each listed contributor:
+This enriched citation metadata enabled the computation of structural features, such as in-degree and out-degree, that reflect a paper’s connectivity within the scholarly graph. While I did not implement a full Graph Neural Network (GNN), I incorporated these graph-derived features and node embeddings into traditional classifiers to capture structural information in a compact and learnable format.
 
-- *OpenAlex Author ID and ORCID* (if available),
-- *Works Count and Citation Count* (overall and per year),
-- *Institutional Affiliations* from both the specific authorship and the most recent known association,
-- *Topical Embeddings* via `x_concepts`, including concept IDs, display names, and relevance scores.
+Initially, I also experimented with PageRank to quantify the relative centrality of papers within the citation graph. However, the resulting values showed almost no meaningful variance—differences only emerged at the 18th decimal place. This suggests that the citation network was too sparse or weakly connected to support informative PageRank scores. Therefore, I excluded PageRank from the final feature set due to its lack of interpretability and discriminative power.
 
-The enriched metadata was later used to compute network-based features such as in-degree, out-degree. These features played a vital role in powering the graph-based models, particularly in the Graph Neural Network (GNN) framework.I initially included PageRank as a network feature to capture the relative importance of each paper based on citation links. However, the computed values were extremely small with no meaningful variation across nodes. The maximum and minimum values differed only at the 18th decimal place. This indicates that the citation graph was too sparse or poorly connected for PageRank to provide useful insights. Due to its lack of variance and interpretability, I decided to exclude the PageRank feature from further analysis.
+=== Citation-Based Network Features
 
-The other author features had a lot of potential for model improvement. For example, the average citation activity of authors could help indicate their reputation, while the variety of research topics could hint at whether a paper was more specialized or broad. Similarly, institutional data could give insights into where retracted papers tend to come from.
+From the enriched metadata, I derived two numeric features reflecting local citation structure:
 
-However, I wasn’t able to fully integrate all of this author-level data into my models due to time constraints. Features like citation trends over time or topic diversity would have required more pre-processing and aggregation. Although I did manage to use some basic citation-based features like in-degree, out-degree for my graph-based model, the more detailed author metadata wasn’t included in the final training pipeline.
+- `incoming_citations_count`: The number of other papers that cite a given paper (i.e., the paper’s in-degree).
+- `outgoing_citations_count`: The number of references made by the paper (i.e., the paper’s out-degree).
 
-maybe in other section: Still, collecting this data was a useful step. It gave me a deeper understanding of what additional information could be useful for retraction prediction. Even though I didn’t use all of it in this version of the project, the enriched dataset is ready and could be used in future experiments to improve the results.
+These features were obtained by counting entries in the `incoming_citations` and `outgoing_citations` lists. They provide important indicators of a paper’s visibility, impact, and referencing behavior and were included in both exploratory analysis and as model inputs.
 
+=== Node Embeddings for the Citation Network
 
+To further leverage the structure of the citation graph, I generated node embeddings that represent each paper as a dense vector in a lower-dimensional space.
 
-== Computed Citation Statistics
+Each node in the graph corresponds to a paper (by DOI), and each directed edge represents a citation from one paper to another.
 
-From the enriched citation metadata, I derived two additional numeric features representing local network structure:
+The embedding pipeline included the following steps:
 
-The first feature, incoming_citations_count, represents the number of other papers that cite a given paper—this is equivalent to the paper's in-degree in the directed citation graph.
-
-The second feature, outgoing_citations_count, indicates how many references the paper includes, corresponding to its out-degree.
-
-Both values were derived by counting the number of entries in the incoming_citations and outgoing_citations lists, respectively.
-
-These were calculated by counting the number of entries in the fields `incoming_citations` and `outgoing_citations`, respectively. They provide important indicators of a paper’s position and connectivity in the citation network and are used both for exploratory data analysis and as input features in downstream models.
+1. *Graph construction*: A directed graph was built using the `networkx.DiGraph` class. Nodes represent paper DOIs, and edges point from citing to cited papers. The constructed citation graph, based on outgoing citation links, consisted of 10,533,332 nodes and 17,326,008 directed edges. These values highlight the graph's large scale and the need for scalable representation learning techniques.
 
 
-== Node Embeddings for the Citation Network
+2. *Embedding model*: I used ProNE (Probability-based Network Embedding), a scalable and efficient graph embedding algorithm. It was configured to produce 64-dimensional vectors and trained on the entire citation graph. Unlike GNNs, ProNE does not rely on message passing but uses spectral propagation and matrix factorization techniques to learn unsupervised representations.
 
-To incorporate structural information from the citation network into my models, I generated *node embeddings* using the directed citation graph constructed from paper-to-paper references.
+3. *Embedding training and storage*: After training, embeddings were extracted and matched to the subset of papers included in the modeling dataset. 
 
-Each node in the graph corresponds to a paper (identified by its DOI), and each directed edge represents a citation from one paper to another.
+These node embeddings served as structural features in my classification models. They provide compact representations of each paper's position and neighborhood in the citation network, allowing machine learning models to learn from structural relationships without requiring full graph traversal at runtime.
 
-The embedding pipeline followed these steps:
+To explore potential structure in the learned embeddings, I applied t-SNE for dimensionality reduction and visualized the embeddings in two-dimensional scatterplots. Points were color-coded by metadata such as publication year, field, domain, and retraction status. This offered a qualitative view into whether papers with similar characteristics tend to cluster in the embedding space, suggesting topical or structural grouping patterns as shown in @embedding1 and @embedding2.
 
-1. *Graph Construction*
-   A directed graph was built using the `networkx.DiGraph` class. Each node corresponds to a paper DOI, and directed edges were added from the citing paper to each of its cited papers. Invalid entries (e.g., malformed DOIs) were filtered out during construction.
 
-2. *Embedding Model Selection*
-   I used ProNE, a scalable and fast graph embedding model well-suited for large graphs. It was configured with 64-dimensional output vectors and trained on the full graph. Optionally, GGVec was considered as an alternative embedding algorithm, offering a good trade-off between quality and speed.
+#figure(
+  image("emb by domain.png", width: 390pt),
+  caption: [
+    A t-SNE projection of ProNE node embeddings, colored by research domain.
+  ]
+)<embedding1>
 
-3. *Embedding Training*
-   The model was trained directly on the citation graph to learn low-dimensional vector representations for each paper, capturing both structural and topological relationships.
+#figure(
+  image("emb by retraction.png", width: 380pt),
+  caption: [
+    A t-SNE projection of ProNE node embeddings, colored by retraction status.
+  ]
+)<embedding2>
 
-4. *Embedding Extraction and Storage*
-   After training, embeddings were extracted and filtered to include only papers present in the modeling dataset. The final node embeddings were stored in `.pkl` format, and the trained model was also saved for reproducibility.
+The resulting plot in @embedding1 shows clear separation between domains, with distinct clusters forming for papers in the Life Sciences, Physical Sciences, Health Sciences, and Social Sciences.
 
-These embeddings served as input features for models requiring a dense, vectorized representation of each paper's position in the citation network, such as GNN-based classifiers and hybrid ML pipelines.
+This indicates that the ProNE embeddings successfully capture high-level structural similarities within the citation network that align with scientific domains. For example, Life Sciences papers (purple) and Social Sciences papers (blue) are densely grouped in specific regions of the plot. This domain-specific clustering suggests that the citation patterns learned by the embedding model reflect not only graph topology but also the semantic structure of scientific discourse, as papers within the same domain tend to cite each other more frequently.
 
-To explore the learned node embeddings, I applied t-SNE to reduce the 64-dimensional vectors to 2D. The resulting embeddings were visualized in scatterplots, colored by metadata attributes such as year, field, domain, and retraction status. This provided an intuitive overview of potential structure or clustering in the citation network.
+A notable cluster in the 2D t-SNE projection—visibly separated from the main embedding cloud (see green blob in @embedding2) was found to correspond to 1,682 papers. Upon inspection of their structural graph properties, all of these papers exhibited an in-degree of zero, meaning that they are never cited by any other paper in the graph. This indicates structural isolation, supporting the hypothesis that the blob reflects a disconnected subset of the citation network. 
+These papers still include citations (mean out-degree = 105.3), but show extremely skewed citation behavior, with one paper citing over 24,000 others. Such patterns may indicate data anomalies, automatically generated references, or low-quality articles from paper mills. Their disconnected status may also explain the model’s difficulty in embedding them meaningfully, resulting in their collapse into a dense blob in the t-SNE plot.
 
-#image("emb by year.png", width: 200pt)
 
-#image("emb by field.png", width: 200pt)
 
-#image("emb by domain.png", width: 200pt)
-
-#image("emb by retraction.png")
-
-== Metadata Thresholding & One-Hot Encoding for Rare Categories
+== Metadata Thresholding & One-Hot Encoding for Rare Categories<onehot>
 
 In my dataset, columns like `Country`, `Institution`, `Author`, `Domain`, and `Field` had many different values. Some of these values only showed up a few times, which made it hard for models to learn anything useful from them. For example, if one university only appeared in two papers, it would not provide a strong learning signal and could even lead to overfitting.
 
@@ -248,6 +289,8 @@ For `Domain`, and `Field`, I created a new version with the suffix `_threshold`.
 
 I discovered that the `Country`, `Institution` and `Author` fields in the original dataset were stored as free-form semicolon-separated strings of variable length—examples like “ETH Zurich; University of Geneva; CERN” or “Switzerland; France” meant each record could contain a completely different number of entries, which is incompatible with the fixed-length numeric input that machine-learning algorithms usually require. To resolve this, I converted every unique author, institution and country into its own binary column: after counting the frequency of each label, I selected the top 100 authors, top 50 institutions and top 20 countries and created a separate feature for each that takes the value one if that label appears in the record and zero otherwise, adding an additional “Other” feature to flag any labels outside those top groups. This one-hot, multi-label encoding transforms each variable-length list into a consistent, sparse numeric matrix that standard classifiers and regressors can process efficiently while keeping the overall feature space manageable and preserving the interpretability of each indicator.
 
+
+/// bis hieeeeeeeeeeeeeeeeeer
 == Creating Metadata Sentences for Text-Based Models
 
 Since I planned to use transformer-based models like BERT or DeBERTa, I wanted to include structured metadata in a way that these models could understand. These models are designed to work with text, so I came up with the idea of turning the metadata into *natural language sentences*.
