@@ -153,3 +153,49 @@ Be transparent about its limitations and data sources.
 
 In short, while machine learning offers exciting opportunities to enhance research integrity, it must be handled with care, humility, and a deep respect for the real-world impact its predictions may have.
 == Error Analysis (here?, opt.)
+
+
+== Temporal Bias Evaluation
+
+== Objective
+
+To evaluate whether the performance of the logistic regression model is influenced by the publication year of scientific articles, we tested for the presence of *temporal bias* in the dataset. The aim was to investigate whether a model trained on papers from one time period generalizes poorly to papers from other periods. This is important because retracted publications may exhibit different patterns over time due to evolving scientific standards, language use, citation behavior, and metadata structure.
+
+== Methodology
+
+The dataset contains a `Year` column, which we used to define three targeted time-based splits:
+
+#table(
+  columns: 5,
+  align: left,
+  [Split Name], [Training Period], [Testing Period], [Description], [Label],
+  [Recent → Old], [2019–2024], [Before 2019], [Train on recent papers], [A],
+  [Old → Recent], [Before 2015], [2015–2024], [Train on early papers], [B],
+  [2010+ → -2010], [2010–2024], [Before 2010], [Train on modern data], [C],
+)
+
+
+Each split was vectorized using TF-IDF on the combined `FullText`, then combined with numerical features including handcrafted features, semantic embeddings, citation statistics, metadata, and binarized author/institution indicators. Hyperparameter tuning was performed with Optuna, and final evaluations were based on accuracy, ROC AUC, confusion matrices, and class-wise precision, recall, and F1 scores.
+
+== Results
+
+#table(
+  columns: 6,
+  align: left,
+  [Split], [Accuracy], [ROC AUC], [Recall (Class 1)], [Recall (Class 0)], [Interpretation],
+  [A], [0.9015], [0.9980], [1.00], [0.84], [Overpredicts fraud in old data],
+  [B], [0.8753], [0.9901], [0.78], [0.99], [Misses fraud in newer data],
+  [C], [0.9782], [0.9975], [1.00], [0.96], [Strong generalization to older papers],
+)
+
+== Interpretation
+
+*Split A:* The model trained on recent papers performs well overall, but shows reduced recall for class 0 (non-retracted papers) on older documents. This leads to a high false positive rate. The likely cause is that papers from earlier periods differ in structure, terminology, or metadata availability compared to recent ones. This indicates a *temporal bias toward newer writing styles*.
+
+*Split B:* The model trained on older data struggles to detect retracted papers in newer years, as reflected by a significantly lower recall for class 1 (retracted papers). This suggests a potential *concept drift*, where the linguistic or structural features of fraudulent papers have changed over time.
+
+*Split C:* Interestingly, this split demonstrates very strong performance despite testing on data from before 2010. This implies that the training data from 2010 onward already includes sufficient diversity to generalize well. However, the relatively small test set in this split may also contribute to this result and should be interpreted cautiously.
+
+== Conclusion
+
+These experiments confirm that the model exhibits *temporal sensitivity*, with significantly different performance depending on the training and testing periods. This underlines the importance of adopting *time-aware validation strategies*, explicitly modeling *temporal context*, or retraining models periodically in production settings to maintain robustness over time. Future work should explore the integration of temporal features and dynamic sampling methods to mitigate these effects.
