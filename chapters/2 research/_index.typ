@@ -3,13 +3,19 @@
 
 = Related Work
 
-Fraud detection in scientific literature The challenge of detecting fraud in scientific literature has spurred research into various automated and semi-automated approaches. Manual checks are often insufficient due to the sheer volume of publications (more than 1.4 million papers a year) and the increasing sophistication of fraudulent practices. Fraudulent data, by its nature, is often designed to elude the self-correcting processes of science. Therefore, any process that can uncover potentially fabricated or fraudulent content is welcomed by the academic community.
+https://www.sciencedirect.com/science/article/pii/S0895435624001525?utm_source=chatgpt.com papermill interconnections?
+
+
+== Overview of Fraud Detection in Scientific Literature
+
+The challenge of detecting fraud in scientific literature has spurred research into various automated and semi-automated approaches. Manual checks are often insufficient due to the sheer volume of publications (more than 1.4 million papers a year) and the increasing sophistication of fraudulent practices. Fraudulent data, by its nature, is often designed to elude the self-correcting processes of science. Therefore, any process that can uncover potentially fabricated or fraudulent content is welcomed by the academic community.
 
 Detection efforts target various forms of misconduct. One focus is on identifying nonsensical algorithmically generated papers, particularly those created using probabilistic context-free grammars like SCIgen and Mathgen. These papers contain fixed word sequences or "fingerprints" derived from the grammar rules, which are unlikely to appear in genuine papers. Another growing area is the detection of AI-generated text (AIGT), as LLMs can produce human-like content that is difficult to distinguish from genuine writing. The emergence of "paper mills" necessitates methods to identify documents resulting from these organizations, often characterized by similarities to known paper mill products. Data-related fraud, such as fabricated or manipulated datasets, is another critical target. This can be particularly difficult to detect without access to raw data. Image manipulation, including the use of invented or slightly modified stock images, is also a known paper mill tactic requiring specific detection methods. Finally, manipulation can extend to meta-data and publication processes, including peer review fraud involving fake accounts or duplicated comments, and citation manipulation or "citation rings".
 
 Automated detection methods are crucial for screening manuscripts before peer review and chasing manipulation in published papers. These tools are intended to complement human curators and editors in the screening process, not necessarily to automate rejection decisions. The ideal scenario involves a multi-stakeholder effort, including authors, co-authors, journals, and institutions, to enhance research integrity.
 
-NLP applications for academic text classification Natural Language Processing (NLP) plays a significant role in developing text-based methods for fraud detection. These methods analyze the linguistic and structural properties of scientific texts to identify anomalies indicative of fraudulent origin.
+== NLP Applications for Academic Text Classification
+Natural Language Processing (NLP) plays a significant role in developing text-based methods for fraud detection. These methods analyze the linguistic and structural properties of scientific texts to identify anomalies indicative of fraudulent origin.
 One approach involves analyzing stylometric features, which are related to authorship attribution and profiling tasks. Retracted papers have been shown to exhibit distinct phrase patterns and higher word repetition compared to non-retracted papers.
 
 Another successful technique is the identification of fixed word sequences or "fingerprints" characteristic of specific text generators, such as SCIgen. This method, exemplified by the "search and prune" approach, uses academic search engines capable of searching full-text to find candidate papers containing these fingerprints. A pruning step is then used to eliminate false positives. This method has been shown to be effective in identifying unmodified SCIgen-generated papers and some papers with SCIgen padding.

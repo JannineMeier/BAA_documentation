@@ -1,55 +1,84 @@
 #import "/template/_helpers.typ": todo
+#import "/template/_helpers.typ": title-caption
+#import "@preview/acrostiche:0.5.0": acr, acrfull
 
 = Data Sources and Preprocessing
 
 == Description of Data Sources
 
-As the foundation for this project, I adopted and extended the dataset introduced in the paper *"Analyzing the Evolution of Scientific Misconduct based on the Language of Retracted Papers"*. The authors of this paper created a structured corpus by combining two primary sources: (1) *Retraction Watch*, which offers detailed records on retracted scientific articles including retraction reasons, and (2) *OpenAlex*, which provides a large-scale, open-access repository of scholarly metadata, including abstracts, citation data, authorship, affiliations, and field classification.
+As the foundation for this thesis, I adopted and extended the dataset from the structured corpus developed in *Analyzing the Evolution of Scientific Misconduct based on the Language of Retracted Papers"* @blessetal.AnalyzingEvolutionScientific2025. The original corpus integrates two critical data sources:
 
-The original dataset was constructed by merging Retraction Watch entries with corresponding OpenAlex metadata, resulting in \~30k unique retracted articles, of which \~19k had usable abstracts. The full texts were partially supplemented through PDF downloads, and content sections like Introduction, Methods, Results & Discussion, and Conclusion were extracted via regex-based heuristics.
+1. *Retraction Watch*: A comprehensive database tracking retracted scientific articles, including detailed retraction reasons.
 
-I adopted this dataset structure and used it as the basis for my own data pipeline. From the initial dataset, I focused solely on papers with available *abstracts*, ensuring a consistent text base for my experiments. I additionally extracted and retained metadata fields for each paper, including:
+2. *OpenAlex*: An open-access repository of scholarly metadata, providing abstracts, citations, authorship, affiliations, and field classifications.
+
+By combining these sources, #cite(<blessetal.AnalyzingEvolutionScientific2025>, form: "prose") enabled systematic analysis of linguistic patterns in retracted papers, which this project further expands.
+
+The original dataset was constructed by merging Retraction Watch entries with corresponding OpenAlex metadata, resulting in \~30k unique retracted articles, of which \~19k had usable abstracts. Content-rich sections such as Introduction, Methods, and Conclusion were already extracted in the original dataset. These were identified using regular expression-based heuristics applied to the full text and labeled accordingly. I reused these pre-labeled sections without modifying the paragraph segmentation, and focused primarily on the Abstract for my core experiments.
+
+I adopted this dataset structure and used it as the basis for my own data pipeline. From the initial dataset, I focused solely on papers with available *abstracts*, ensuring a consistent text base for my experiments. I additionally extracted and retained metadata fields for each paper. Many metadata fields (e.g., Author, Institution, Country) were stored as semicolon-separated strings containing multiple entries per paper. Metadata fields include:
 
 - `Field`, `Country`, and `Domain`: Broad categorization of the research.
 - `OriginalPaperDOI` and `OriginalPaperDate`: Identifiers and timestamps.
 - `Author`, `Institution`, `Language`: Contextual and attributional data.
-- `Abstract`, `Introduction`, `Methods`, `Related Work`, `Result & Discussion`, `Conclusion`: Content-rich sections used for feature extraction.
+- `Abstract`, `Introduction`, `Methods`, `Related Work`, `Result & Discussion`, `Conclusion`: Content-rich sections used for further feature extraction.
 - `retracted`: Label indicating whether the paper has been retracted.
 
-To establish a binary classification task, I selected only papers with a complete abstract and labeled them as either retracted due to scientific *fraud* or *non-retracted*.
+Many metadata fields (e.g., Author, Institution, Country) were stored as semicolon-separated strings containing multiple entries per paper. 
 
-== Retraction Reason Selection and Labeling
+To establish a binary classification task, I selected only papers with a complete abstract and labeled them as either retracted due to scientific *fraud* or *non-retracted*. The binary classification label (scientific fraud vs. non-retracted) was created based on a curated subset of Retraction Watch categories, as detailed in @labeling. Abstracts were selected as the core text input due to their concise summarization of a paper’s content, near-universal availability, and reduced risk of structural noise compared to full texts. 
 
-The Retraction Watch database includes over 100 distinct retraction reasons, with each paper potentially associated with multiple labels. For this project, I manually defined a subset of retraction reasons indicative of *scientific fraud* and grouped them into the following categories:
+== Retraction Reason Selection and Labeling <labeling>
 
-- *1. Scientific Fraud*
+The Retraction Watch database includes over 100 distinct retraction reasons, with each paper potentially associated with multiple labels. For this project, I manually defined a subset of retraction reasons indicative of *scientific fraud* and grouped them into the following categories. I chose these categories because they clearly involve intentional deception, manipulation, or serious misconduct. This sets them apart from cases that might just involve mistakes (like data loss or plagiarism) or procedural problems (like disputes about authorship). The goal was to focus specifically on types of fraud that seriously threaten the integrity of scientific research.
 
-- *1.1 Manipulation of the Publication Process* (7651 unique)
+#set list(
+  marker: [•],
+  indent: 1.5em,
+  spacing: 0.6em
+)
 
-  - *Fake Peer Review* (4699)
-  - *Paper Mill* (3503)
-  - *Rogue Editor* (1972)
+#list(
+  [*Scientific Fraud*],
+  list(
+    [_Manipulation of the Publication Process_ (7,651 unique)],
+    list(
+      [Fake Peer Review (4,699)],
+      [Paper Mill (3,503)],
+      [Rogue Editor (1,972)],
+    ),
+    [_Scientific Misconduct by Authors_ (4,707 unique)],
+    list(
+      [Misconduct by Author (1,278)],
+      [Falsification/Fabrication of Results (71)],
+      [Falsification/Fabrication of Data (945)],
+      [Randomly Generated Content (3,090)],
+    ),
+  ),
+  
+  [*High-Risk Author* (used only for GNN features)],
+  list(
+    [Investigation by Journal/Publisher (11,440)],
+    [Investigation by Third Party (6,707)],
+    [Investigation by Company/Institution (2,001)],
+    [Investigation by ORI (190)],
+    [Author Unresponsive (75)],
+    [Complaints about Author (1,209)],
+  )
+)
 
-- *1.2 Scientific Misconduct by Authors* (4707 unique)
-
-  - *Misconduct by Author* (1278)
-  - *Falsification/Fabrication of Results* (71)
-  - *Falsification/Fabrication of Data* (945)
-  - *Randomly Generated Content* (3090)
-
-- *2. High-Risk Author* *(included only in GNN approach)*
-
-  - *Investigation by Journal/Publisher* (11440)
-  - *Investigation by Third Party* (6707)
-  - *Investigation by Company/Institution* (2001)
-  - *Investigation by ORI* (190)
-  - *Author Unresponsive* (75)
-  - *Complaints about Author* (1209)
-
-Due to significant overlap between these categories (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling.
+Due to significant overlap between these categories as seen in @labeloverlaps (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling. Note that many papers were associated with multiple retraction reasons; for binary labeling, papers matching at least one fraud-related reason were marked as scientific fraud. Papers with no fraud-related labels and no retraction were treated as non-retracte}.
 
 
-#image("overlap splits.png", width: 200pt)
+#figure(
+  image("/images/overlap splits.png", width: 50%),
+  caption: title-caption(
+    [Overlap Between Retraction Reason Categories],
+    [Overlap Between Retraction Reason Categories in the Retraction Watch Database],
+  )
+)<labeloverlaps>
+
+continue hereeee
 
 
 == Dataset Merging and Cleaning
@@ -58,13 +87,8 @@ To build a robust and balanced dataset, I filtered the original retraction corpu
 
 To create a comparable non-retracted sample, I drew articles from OpenAlex’s *most-cited publications* across various domains. The idea was to match the topical and temporal distribution of retracted papers while minimizing the risk of including soon-to-be-retracted or suspicious articles. 
 
-I downsampled this reference set to obtain *approximately 10,000 non-retracted papers*. I randomly downsampled it (?)
+I randomly downsampled this reference set to obtain *approximately 10,000 non-retracted papers*.
 
-What would be better maybe: Instead of randomly selecting non-retracted papers, I applied a more informed downsampling strategy. For each paper labeled as retracted, I looked at its Field, Domain, and year of publication (extracted from OriginalPaperDate). I then attempted to sample an equal number of non-retracted papers from the same (Field, Domain, Year) combinations. This helped ensure that the characteristics of the retained non-retracted papers were as close as possible to those of the retracted ones, reducing the risk of introducing unwanted bias from imbalanced distributions across disciplines or time periods.
-
-In cases where no suitable non-retracted paper was available for a given combination, I skipped that group. To still reach the target size of approximately 10,000 non-retracted examples, I randomly selected additional entries from the remaining pool of non-retracted papers. This fallback ensured that the final class distribution was close to 50/50 while maintaining a degree of structure based on field, domain, and publication year.
-
-This balanced dataset provides a more stable foundation for training and evaluating classification models and allows better generalization across disciplines and publication periods.
 
 == Feature Extraction and Engineering
 

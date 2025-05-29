@@ -199,3 +199,8 @@ Each split was vectorized using TF-IDF on the combined `FullText`, then combined
 == Conclusion
 
 These experiments confirm that the model exhibits *temporal sensitivity*, with significantly different performance depending on the training and testing periods. This underlines the importance of adopting *time-aware validation strategies*, explicitly modeling *temporal context*, or retraining models periodically in production settings to maintain robustness over time. Future work should explore the integration of temporal features and dynamic sampling methods to mitigate these effects.
+
+
+== Discussion downsampling
+
+What would be better maybe: Instead of randomly selecting non-retracted papers, I applied a more informed downsampling strategy. For each paper labeled as retracted, I looked at its Field, Domain, and year of publication (extracted from OriginalPaperDate). I then attempted to sample an equal number of non-retracted papers from the same (Field, Domain, Year) combinations. This helped ensure that the characteristics of the retained non-retracted papers were as close as possible to those of the retracted ones, reducing the risk of introducing unwanted bias from imbalanced distributions across disciplines or time periods.
