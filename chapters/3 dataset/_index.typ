@@ -6,91 +6,95 @@
 
 == Dataset Construction
 
-As the foundation for this thesis, I adopted and extended the dataset from the structured corpus developed in *Analyzing the Evolution of Scientific Misconduct based on the Language of Retracted Papers"* @blessetal.AnalyzingEvolutionScientific2025. The original corpus integrates two critical data sources:
+This thesis builds upon the dataset introduced by Analyzing the Evolution of Scientific Misconduct based on the Language of Retracted Papers @blessetal.AnalyzingEvolutionScientific2025, which combines two main data sources:
 
-1. *Retraction Watch*: A comprehensive database tracking retracted scientific articles, including detailed retraction reasons.
+- Retraction Watch: A comprehensive database of retracted scientific articles, annotated with detailed retraction reasons.
 
-2. *OpenAlex*: An open-access repository of scholarly metadata, providing abstracts, citations, authorship, affiliations, and field classifications.
+- OpenAlex: A large-scale open-access scholarly graph providing metadata such as abstracts, citations, authors, institutions, and subject classifications.
 
-By combining these sources, #cite(<blessetal.AnalyzingEvolutionScientific2025>, form: "prose") enabled systematic analysis of linguistic patterns in retracted papers, which this project further expands.
+The dataset merges these sources to enable systematic analysis of scientific misconduct, especially in linguistic and structural terms. I reused this dataset as a foundation and expanded it through additional preprocessing, filtering, and metadata enrichment.
 
 The original dataset was constructed by merging Retraction Watch entries with corresponding OpenAlex metadata, resulting in \~30k unique retracted articles, of which \~19k had usable abstracts. Content-rich sections such as Introduction, Methods, and Conclusion were already extracted in the original dataset. These were identified using regular expression-based heuristics applied to the full text and labeled accordingly. I reused these pre-labeled sections without modifying the paragraph segmentation, and focused primarily on the Abstract for my core experiments  due to  consistent availability and conciseness.
 
 
 === Filtering and Balancing
 
-To ensure a clean, task-relevant dataset:
+To prepare a balanced dataset suitable for binary classification:
 
-- Retracted Papers: I first filtered the retracted paper corpus to retain only entries with a non-empty abstract. Abstracts were required as they serve as the primary input for most of my models. This step resulted in approximately 10,000 retracted papers.
+- Retracted Papers: I filtered the retraction corpus to include only papers with a non-empty abstract, as abstracts served as the primary textual input across most experiments. 
 
-- Non-Retracted Papers: I randomly downsampled the reference set from #cite(<blessetal.AnalyzingEvolutionScientific2025>, form: "prose")) to obtain approximately 10,000 non-retracted papers. These papers were originally selected by the authors based on high citation counts across matching years and fields, under the assumption that frequently cited articles are less likely to be retracted and can serve as a reliable comparison group.
+- Non-Retracted Papers: I adopted the control sample defined by @blessetal.AnalyzingEvolutionScientific2025, consisting of highly cited, non-retracted articles matched by year and research field. These were originally chosen under the assumption that well-cited papers are less likely to be retracted and provide a stable reference set. I randomly downsampled this set to match the size of the retracted group.
 
 
 
 === Labeling Strategy
 
-Retraction Watch includes over 100 retraction reasons, often overlapping (see @labeloverlap). For binary classification (fraud vs. non-retracted), I defined fraud as intentional misconduct (e.g., "Fake Peer Review," "Fabricated Data"), excluding ambiguous or procedural issues (see @labeling for categories). Papers with any fraud-related reason were labeled as fraud; non-retracted papers formed the negative class.
+The Retraction Watch database contains over 100 retraction reason categories, and a single paper may be associated with multiple overlapping reasons (see @labeloverlap).
 
+For the purpose of binary classification, I defined scientific fraud as retraction reasons that clearly suggest intentional deception or systematic misconduct (e.g., “Fake Peer Review”, “Fabricated Data”). Ambiguous, procedural, or non-deceptive issues such as authorship disputes, plagiarism, or publisher error were excluded from the fraud definition.
+
+Papers were assigned the positive class (scientific fraud) if they matched at least one fraud-related retraction reason from my defined subset. All non-retracted papers formed the negative class (non-retracted). This approach allowed for a focused classification task centered on fraud detection.
 
 
 === Metadata Retention
-The dataset preserves metadata fields such as:
+The dataset retains a curated set of metadata fields relevant for modeling and analysis:
 
-- Field, Country, Domain: Research categorizations.
+- Field, Domain, Country: Represent the research area and geographic context.
 
-- Author, Institution: Semicolon-separated collaboration data.
+- Author, Institution: Capture collaboration metadata as semicolon-separated lists.
 
-- OriginalPaperDate, retracted: Temporal and label data.
+- OriginalPaperDate: Used to extract publication year for temporal analysis.
 
-I decided to drop the Language column because almost all the papers are written in English (over 99%). There are only a few entries in other languages, like German or French, which isn't enough to be useful for training a model. Keeping this feature would just add unnecessary noise, so I removed it to keep things cleaner and more focused.
+- retracted: The binary target label (fraud vs. non-retracted).
 
-Processing details for metadata features follow in @feature_eng
+The Language column was excluded, as over 99% of papers were written in English. The few non-English entries (e.g., in German or French) were too sparse to contribute meaningfully to classification and could introduce unnecessary noise.
+
+Further details on how these metadata features were transformed and engineered can be found in @feature_eng.
 
 
 === Retraction Reason Selection and Labeling <labeling>
 
-The Retraction Watch database includes over 100 distinct retraction reasons, with each paper potentially associated with multiple labels. For this project, I manually defined a subset of retraction reasons indicative of *scientific fraud* and grouped them into the following categories. I chose these categories because they clearly involve intentional deception, manipulation, or serious misconduct. This sets them apart from cases that might just involve mistakes (like data loss or plagiarism) or procedural problems (like disputes about authorship). The goal was to focus specifically on types of fraud that seriously threaten the integrity of scientific research.
+The Retraction Watch database contains over 100 retraction reasons, and each paper can be associated with multiple labels. To enable a clear and well-defined binary classification task (fraudulent vs. non-retracted), I manually selected a subset of retraction reasons that explicitly indicate scientific fraud.
 
-#set list(
-  marker: [•],
-  indent: 1.5em,
-  spacing: 0.6em
-)
+The reasons were grouped into two high-level categories:
 
-#list(
-  [*Scientific Fraud*],
-  list(
-    [_Manipulation of the Publication Process_ (7,651 unique)],
-    list(
-      [Fake Peer Review (4,699)],
-      [Paper Mill (3,503)],
-      [Rogue Editor (1,972)],
-    ),
-    [_Scientific Misconduct by Authors_ (4,707 unique)],
-    list(
-      [Misconduct by Author (1,278)],
-      [Falsification/Fabrication of Results (71)],
-      [Falsification/Fabrication of Data (945)],
-      [Randomly Generated Content (3,090)],
-    ),
-  ),
-  
-  [*High-Risk Author* (used only for GNN features)],
-  list(
-    [Investigation by Journal/Publisher (11,440)],
-    [Investigation by Third Party (6,707)],
-    [Investigation by Company/Institution (2,001)],
-    [Investigation by ORI (190)],
-    [Author Unresponsive (75)],
-    [Complaints about Author (1,209)],
-  )
-)
+- Manipulation of the Publication Process
 
-Due to significant overlap between these categories as seen in @labeloverlap (particularly “Paper Mill” and “Randomly Generated Content”), I merged them into a single binary label: *scientific fraud* (retracted due to misconduct) vs. *non-retracted*. This enabled a focused and well-defined classification objective for all subsequent modeling.
+    - Fake Peer Review 
+
+  - Paper Mill 
+
+  - Rogue Editor
+
+- Scientific Misconduct by Authors
+
+  - Misconduct by Author 
+
+  - Falsification/Fabrication of Results 
+
+  - Falsification/Fabrication of Data 
+
+  - Randomly Generated Content 
+
+A third category, High-Risk Author, was created to flag papers under investigation:
+
+- Investigations by journals, institutions, or third parties
+
+- Author unresponsiveness or complaints
+
+
+
+Due to significant overlap between these categories as seen in @labeloverlap, I merged them into a single binary label: 
+
+- 1 → Retracted due to fraud or misconduct
+
+- 0 → Not retracted
+
+This binary definition enabled focused modeling on misconduct cases while excluding procedural retractions or honest errors (e.g., plagiarism, authorship disputes, data loss).
 
 
 #figure(
-  image("/images/overlap_labels.png", width: 50%),
+  image("/images/venn_labels.png", width: 50%),
   caption: title-caption(
     [Overlap Between Retraction Reason Categories],
     [Overlap Between Retraction Reason Categories in the Retraction Watch Database],
@@ -100,31 +104,41 @@ Due to significant overlap between these categories as seen in @labeloverlap (pa
 // heeeeeeeeeeeeeeeere
 == Feature Extraction and Engineering<feature_eng>
 
-To support diverse modeling approaches, I extracted and engineered features from three data modalities: metadata, text, and citation structure. Each feature type was designed to capture distinct signals relevant to retraction prediction.
+To support diverse modeling strategies, I engineered features across three modalities:
 
+1. Metadata features — numerical and categorical data (e.g., year, country, author count)
 
-=== Adjusted Features from Original Dataset
-In the course of preparing the dataset for model training, I paid particular attention to the metadata fields Author, Institution, and Country. These fields originally consisted of semicolon-separated strings, often containing multiple entries per paper. For example, a single entry in the Author column could list several names as "Derek C. Angus;Tom van der Poll", or the Country field might combine "Netherlands;United States". While human-readable, this format is unsuitable for machine learning models that require structured, numerical inputs.
+2. Text-based features — semantic representations (e.g., TF-IDF, sentence embeddings)
 
-The main issue with these fields in their original format is that they are both unordered and highly variable in length. The order in which authors or institutions appear does not carry meaningful information, and treating the entire string as a categorical variable would result in an excessive number of unique, sparsely repeated combinations. Moreover, standard encoding techniques like one-hot encoding or label encoding are ill-suited for such long-tail, high-cardinality text data. Therefore, in order to extract useful signal from these metadata fields while keeping the dataset interpretable and model-friendly, I decided to transform them into structured, count-based, and frequency-aware features.
+3. Citation-based features — graph-derived metrics (e.g., in/out degree, node embeddings)
 
-I began by calculating the number of authors, institutions, and countries listed per paper. These new features (num_authors, num_institutions, and num_countries) serve as simple but informative indicators of collaboration scope or international involvement. In particular, I assumed that the number of authors or contributing institutions might correlate with factors like research quality or interdisciplinary character, which could in turn influence the likelihood of retraction.
+=== Metadata Feature Engineering
+Metadata fields such as Author, Institution, and Country were originally stored as semicolon-separated strings. To make these usable for machine learning, I performed two main transformations:
 
-Beyond the counts, I also wanted to capture information about the presence of specific authors, institutions, or countries—especially those that appear frequently across the dataset. To achieve this, I identified the most common entries in each category: the top 100 authors, the top 50 institutions, and the top 20 countries. For each of these, I created binary indicator features that denote whether the corresponding entity is involved in a given paper. This approach allows the model to learn patterns related to well-known or prolific contributors without relying on raw textual identifiers. The thresholds (top 100 authors, 50 institutions, 20 countries) were chosen to balance coverage and model complexity.
+- Count-based indicators:
+  - num_authors: Number of authors
 
-Given the long tail of rare or unique entries, I also introduced an “Other” category in each group to flag cases where none of the top entries were present. This ensures that all papers are represented within the new feature set, even if they involve lesser-known authors or institutions.
+  - num_institutions: Number of listed institutions
 
-Overall, this feature engineering step helped convert raw metadata into meaningful, structured inputs that can be interpreted by models and potentially linked to retraction risk. It also ensures better generalizability and avoids the overfitting risks associated with high-cardinality categorical text.
+  - num_countries: Number of countries based on affiliations
 
+- Top-N indicators: For frequently occurring authors (top 100), institutions (top 50), and countries (top 20), I created binary features indicating their presence. All other entries were grouped under "Other" as described in @onehot.
+
+These transformations not only reduced noise but also improved generalizability by focusing the model on frequent and robust patterns. Avoiding rare or overly specific entries (e.g., institutions listed in only 1–2 papers) helped prevent overfitting and made the model more adaptable to unseen data.
+
+A full overview of all derived metadata features, including their names, types, and descriptions, is provided in Appendix.
 
 === Text-Based Features
 
-- *TF-IDF Vectors*: Created from the `Abstract` section to represent term frequency patterns.
-- *Sentence Embeddings*: Derived using pre-trained transformer models from the sentence-transformers library, specifically using microsoft/deberta-v3-small. 
+Two core representations were extracted from the Abstract and full text:
 
-=== Handcrafted Text-Based Features
+- TF-IDF Vectors: Sparse bag-of-words representations reflecting term frequency patterns
 
-In addition to embeddings and metadata, I engineered a diverse set of handcrafted features to capture different characteristics of the text in a more interpretable way. These features were designed to reflect writing style, structure, and linguistic patterns that could help distinguish between retracted and non-retracted papers.
+- Sentence Embeddings: Dense vector representations using microsoft/deberta-v3-small via the sentence-transformers library
+
+=== Handcrafted Text Features
+
+I engineered a diverse set of handcrafted features to capture different characteristics of the text in a more interpretable way. These features were designed to reflect writing style, structure, and linguistic patterns that could help distinguish between retracted and non-retracted papers.
 
 The features were extracted from two main text sources:
 - *the abstract*
@@ -132,27 +146,16 @@ The features were extracted from two main text sources:
 
 To process the texts, I used tokenization from the NLTK library and regular expressions for pattern matching. I also removed stopwords using NLTK's built-in stopwords.words('english') list.
 
-The handcrafted features included a total of 30 abstract-based features and 30 full-text-based features, each prefixed accordingly (hc_ for abstract, hc_ft_ for full text). 
+I developed 60 interpretable text features. 30 based on the abstract (hc_) and 30 from the full text (hc_ft_). These include:
+- Basic Statistics: char_count, word_count, sentence_count, etc.
+- Linguistic Ratios: stopword_ratio, type_token_ratio, digit_ratio
+- Stylistic Patterns: modal_verb_count, negation_count, pronoun_we_count
+- Punctuation & Structure: quote_count, question_count, comma_count
+- Lexical Complexity: long_word_ratio, avg_token_length
 
-Examples of the extracted features include:
-- *Basic text statistics*
-  Such as total number of characters (char_count), words (word_count), sentences (sentence_count), and average word or sentence length.
+All features were standardized with StandardScaler and stored in the final dataset.
 
-- *Linguistic ratios*
-  Including stopword ratio, type-token ratio (TTR), uppercase ratio, digit ratio, and special character ratio.
-
-- *Syntactic and stylistic markers*
-  Like the number of passive-voice patterns, negations (e.g., “not”, “never”), modal verbs (e.g., “might”, “could”), and personal pronouns (“I”, “we”).
-
-- *Lexical and punctuation features*
-  Such as lexical density, number of questions, exclamations, quotes, commas, colons, semicolons, periods, and use of adverbs as a proxy for adjective or descriptive style.
-
-- *Word length ratios*
-  For example, the ratio of long words (more than 6 characters) and short words (3 characters or less).
-
-All features were computed using custom Python functions and stored in a pandas DataFrame. To make them usable for machine learning models, I applied standardization using StandardScaler from scikit-learn. This step ensures that all features are on the same scale, which is especially important when combining them with other numeric inputs like citation counts or similarity scores.
-
-In total, each paper was represented by 60 handcrafted features: 30 from the abstract and 30 from the full text. These features were then saved into the final dataset for further analysis and model training.A full list and description of all handcrafted text-based features can be found in @T:featuredescription.
+A full list of features is provided in Appendix @T:featuredescription.
 
 #figure(
   table(
@@ -199,61 +202,64 @@ In total, each paper was represented by 60 handcrafted features: 30 from the abs
   ),
 )<T:featuredescription>
 
-
-
-// === Metadata Features
-
-//- OriginalPaperDate: Used to extract the publication year of each article. This temporal metadata allows for time-based comparisons, and could reveal shifts in fraud prevalence or detection over time.
-//- Country: Based on author affiliations. For multi-country papers, all countries listed were retained and used to generate indicators (e.g., number of countries, presence of top countries).
-//- Institution: Captures the organizations listed in the paper. From this field, derived features included the number of institutions per paper and binary indicators for top institutions, as described earlier.
-//- Domain and Field: These represent broader and more specific research areas, respectively (e.g., Domain: Medicine; Field: Oncology). They help account for domain-specific language patterns and publication norms.
-//- Author: Used to extract author count, as well as indicators for presence of frequent authors (top 100). Also forms the basis for author-related features used in the GNN setup.
-
-//All metadata features were either one-hot encoded (for categorical variables such as country or field) or standardized (for numeric values such as publication year or author count) before being fed into the classifiers as described in @onehot.
-
-
 == Additional Metadata Enrichment via OpenAlex API
+To extend the dataset with citation-related structural information, I implemented a custom asynchronous crawler using the OpenAlex API. This enrichment phase provided essential graph-based features for downstream analysis.
 
-To extend the initial dataset with more detailed structural and contextual information, I implemented a custom asynchronous crawler leveraging the OpenAlex API (https://openalex.org/). This enrichment step was critical for supplying additional input features to my models.
-
-To ensure stable and high-throughput access, I registered and used a personal API key. This granted increased rate limits and allowed for robust large-scale querying.
-
-For each paper in the dataset (identified by its DOI), the crawler retrieved:
-
+Each paper was identified by its DOI and augmented with:
 - Outgoing citations: A list of DOIs representing all works referenced by the article.
 - Incoming citations: A list of OpenAlex records (IDs, DOIs, titles) for all articles that cite the target paper. These were retrieved via paginated queries and merged for full coverage.
 
-This enriched citation metadata enabled the computation of structural features, such as in-degree and out-degree, that reflect a paper’s connectivity within the scholarly graph. While I did not implement a full Graph Neural Network (GNN), I incorporated these graph-derived features and node embeddings into traditional classifiers to capture structural information in a compact and learnable format.
+Not all papers had complete citation metadata available via OpenAlex. Some entries were missing DOI mappings or had incomplete incoming citation data. These were excluded from graph-based features to maintain consistency.
 
-Initially, I also experimented with PageRank to quantify the relative centrality of papers within the citation graph. However, the resulting values showed almost no meaningful variance—differences only emerged at the 18th decimal place. This suggests that the citation network was too sparse or weakly connected to support informative PageRank scores. Therefore, I excluded PageRank from the final feature set due to its lack of interpretability and discriminative power.
-
-=== Citation-Based Network Features
-
-From the enriched metadata, I derived two numeric features reflecting local citation structure:
-
-- `incoming_citations_count`: The number of other papers that cite a given paper (i.e., the paper’s in-degree).
-- `outgoing_citations_count`: The number of references made by the paper (i.e., the paper’s out-degree).
-
-These features were obtained by counting entries in the `incoming_citations` and `outgoing_citations` lists. They provide important indicators of a paper’s visibility, impact, and referencing behavior and were included in both exploratory analysis and as model inputs.
-
-=== Node Embeddings for the Citation Network
-
-To further leverage the structure of the citation graph, I generated node embeddings that represent each paper as a dense vector in a lower-dimensional space.
-
-Each node in the graph corresponds to a paper (by DOI), and each directed edge represents a citation from one paper to another.
-
-The embedding pipeline included the following steps:
-
-1. *Graph construction*: A directed graph was built using the `networkx.DiGraph` class. Nodes represent paper DOIs, and edges point from citing to cited papers. The constructed citation graph, based on outgoing citation links, consisted of 10,533,332 nodes and 17,326,008 directed edges. These values highlight the graph's large scale and the need for scalable representation learning techniques.
+To ensure robust and efficient querying, I registered a personal API key, which allowed for higher rate limits and greater stability during large-scale requests.
 
 
-2. *Embedding model*: I used ProNE (Probability-based Network Embedding), a scalable and efficient graph embedding algorithm. It was configured to produce 64-dimensional vectors and trained on the entire citation graph. Unlike GNNs, ProNE does not rely on message passing but uses spectral propagation and matrix factorization techniques to learn unsupervised representations.
+=== Citation Graph Construction
+Using the enriched citation data, I constructed a directed graph with networkx.DiGraph, where:
 
-3. *Embedding training and storage*: After training, embeddings were extracted and matched to the subset of papers included in the modeling dataset. 
+- Nodes represent papers (by DOI)
 
-These node embeddings served as structural features in my classification models. They provide compact representations of each paper's position and neighborhood in the citation network, allowing machine learning models to learn from structural relationships without requiring full graph traversal at runtime.
+- Directed edges represent citations (from citing to cited paper)
 
-To explore potential structure in the learned embeddings, I applied t-SNE for dimensionality reduction and visualized the embeddings in two-dimensional scatterplots. Points were color-coded by metadata such as publication year, field, domain, and retraction status. This offered a qualitative view into whether papers with similar characteristics tend to cluster in the embedding space, suggesting topical or structural grouping patterns as shown in @embedding1 and @embedding2.
+The resulting graph contained:
+
+- 10,533,332 nodes
+
+- 17,326,008 directed edges
+
+This highlights the large-scale nature of the dataset and justifies the need for scalable representation methods such as node embeddings.
+
+=== Graph-Based Feature Engineering
+Two direct citation-based features were extracted per paper:
+
+- incoming_citations_count: In-degree (number of times cited)
+
+- outgoing_citations_count: Out-degree (number of references made)
+
+These structural metrics were used in exploratory data analysis and included in traditional classifiers.
+
+=== Node Embeddings
+To represent each paper’s citation context more compactly, I trained node embeddings on the citation graph using ProNE (Probabilistic Network Embedding), a scalable spectral-based method. Configuration:
+
+- Embedding dimension: 64
+
+- Graph input: full citation graph
+
+- Training output: low-dimensional vector per node
+
+These embeddings serve as dense, learnable representations of each paper’s position and neighborhood in the citation network — similar to how word embeddings capture semantic similarity.
+
+=== Embedding Visualization
+To explore structural patterns, I used t-SNE to reduce the 64-dimensional embeddings to 2D for visualization. Each point represents a paper, color-coded by metadata attributes such as:
+
+- Domain (see Figure @embedding1)
+
+- Retraction status (see Figure @embedding2)
+
+- Publication year, etc.
+
+These visualizations provided insight into whether papers with similar characteristics (e.g. domain, fraud label) are grouped closely in the structural embedding space.
+
 
 
 #figure(
@@ -278,16 +284,64 @@ A notable cluster in the 2D t-SNE projection—visibly separated from the main e
 These papers still include citations (mean out-degree = 105.3), but show extremely skewed citation behavior, with one paper citing over 24,000 others. Such patterns may indicate data anomalies, automatically generated references, or low-quality articles from paper mills. Their disconnected status may also explain the model’s difficulty in embedding them meaningfully, resulting in their collapse into a dense blob in the t-SNE plot.
 
 
+== Metadata Thresholding & One-Hot Encoding <onehot>
 
-== Metadata Thresholding & One-Hot Encoding for Rare Categories<onehot>
+Several categorical metadata fields in the dataset, including Author, Institution, Country, Domain, and Field, contained hundreds or thousands of unique values. Many of these appeared only a handful of times, making them difficult to model and prone to overfitting.
 
-In my dataset, columns like `Country`, `Institution`, `Author`, `Domain`, and `Field` had many different values. Some of these values only showed up a few times, which made it hard for models to learn anything useful from them. For example, if one university only appeared in two papers, it would not provide a strong learning signal and could even lead to overfitting.
+To address this, I applied frequency-based thresholding and one-hot encoding.
 
-To solve this, I decided to apply a threshold. I grouped all values that appeared *less than 50 times* under a general category called *"other"*. I chose the value of 50 after trying different settings and looking at the data. A lower threshold didn’t reduce the noise enough, and a higher one removed too much useful detail. So 50 was a good balance between keeping important information and removing rare, noisy values.
+=== Frequency Thresholding
+For each categorical column, I grouped infrequent values into an "other" category. The thresholds were selected empirically to strike a balance between coverage and noise reduction:
+- Top 100 authors
+- Top 50 institutions
+- Top 20 countries
 
-For `Domain`, and `Field`, I created a new version with the suffix `_threshold`. For example, `Domain_threshold` contains either the original domain name or "other", depending on how often the domain appears in the dataset. This step helped simplify the metadata and made it easier for the models to focus on patterns that appear more often in the data.
+All values below these thresholds were replaced with "other".
 
-I discovered that the `Country`, `Institution` and `Author` fields in the original dataset were stored as free-form semicolon-separated strings of variable length—examples like “ETH Zurich; University of Geneva; CERN” or “Switzerland; France” meant each record could contain a completely different number of entries, which is incompatible with the fixed-length numeric input that machine-learning algorithms usually require. To resolve this, I converted every unique author, institution and country into its own binary column: after counting the frequency of each label, I selected the top 100 authors, top 50 institutions and top 20 countries and created a separate feature for each that takes the value one if that label appears in the record and zero otherwise, adding an additional “Other” feature to flag any labels outside those top groups. This one-hot, multi-label encoding transforms each variable-length list into a consistent, sparse numeric matrix that standard classifiers and regressors can process efficiently while keeping the overall feature space manageable and preserving the interpretability of each indicator.
+For example, the transformed column Field_threshold contains either the original field name or "other", depending on how frequently the field occurs in the dataset. This helps reduce model complexity while retaining meaningful distinctions.
+
+The thresholds for author, institution, and country indicators were selected after analyzing the distribution of frequencies, which revealed a long-tail pattern with a few highly frequent entries and many rare ones.
+
+=== One-Hot & Multi-Label Encoding
+Fields like Author, Institution, and Country were originally stored as semicolon-separated strings, e.g.:
+
+- Author: "Derek C. Angus; Tom van der Poll"
+
+- Country: "Netherlands; United States"
+
+These fields are multi-label and variable in length, which is incompatible with most machine learning algorithms.
+
+To transform them into a usable format:
+
+1. I counted the frequency of each unique entity.
+
+2. I created binary indicator columns for the top entries (e.g., author_ETH, country_US), plus an "other" flag.
+
+Each new feature takes the value 1 if the entity appears in a given paper, and 0 otherwise.
+
+This approach preserves multi-label information while converting irregular text fields into a fixed-length, sparse binary matrix — ideal for structured classifiers.
+
+
+#figure(
+  table(
+    columns: 3,
+    table.header(
+      [Field],
+      [Threshold],
+      [Resulting Features],
+    ),
+
+    [`Author`], [Top 100], [101 binary columns],
+    [`Institution`], [Top 50], [51 binary columns],
+    [`Country`], [Top 20], [21 binary columns],
+    [`Field`], [50+ count], [One-hot or “other”],
+    [`Domain`], [50+ count], [One-hot or “other”],
+  ),
+  caption: title-caption(
+    [Metadata Thresholding and Resulting Feature Space],
+    [Summary of thresholds applied for high-cardinality metadata fields and the resulting feature transformations.],
+  ),
+)<T:metadata_thresholds>
 
 
 /// bis hieeeeeeeeeeeeeeeeeer
@@ -306,15 +360,16 @@ For each paper, I created a sentence that combines the most important metadata i
 I did this in *two versions*. One version used the original metadata values. The other version used the thresholded values, where rare countries or institutions were replaced with "other".
 
 Here is an example using the original metadata:
-*“This paper was written on 06/10/2021 00:00 in China;Australia, at School of Information and Communication Technology, Griffith University, Nathan, QLD, Australia;College of Computer and Information, Hohai University, Nanjing, China, in the domain of Physical Sciences, covering the field of Computer Science.”*
+_This paper was written on 06/10/2021 00:00 in China;Australia, at School of Information and Communication Technology, Griffith University, Nathan, QLD, Australia;College of Computer and Information, Hohai University, Nanjing, China, in the domain of Physical Sciences, covering the field of Computer Science._
 
 And here is an example of a sentence using the thresholded values:
-*“This paper was written on 06/10/2021 00:00 in other, at other, in the domain of Physical Sciences, covering the field of Computer Science.”*
+_This paper was written on 06/10/2021 00:00 in other, at other, in the domain of Physical Sciences, covering the field of Computer Science._
 
-If some parts of the metadata were missing, I just left them out or replaced them with "other". The final sentences were saved in a column called `metadata_sentence_threshold`, so they could easily be added to the model input later.
+If some parts of the metadata were missing, I just left them out or replaced them with "other". 
 
-This approach allowed me to give the models extra context without changing their architecture. It also made it possible to use metadata in the same way as the abstract or introduction — as text that the model could read and learn from.
+This approach allowed me to give the models extra context without changing their architecture. It also made it possible to use metadata in the same way as the abstract or introduction, as text that the model could read and learn from.
 
+// here
 == Similarity Score Features
 https://github.com/Christof93/citation_semantic_congruence
 to do: neu schreiben und evtl grafik hinzufügen
