@@ -9,3 +9,4 @@ The first approach is a classical machine learning setup. I created features fro
 The second approach is based on deep learning. Here, I used a transformer model and gave it only the raw text of the papers, for example the abstract or full text. This model can learn patterns in the language without needing any hand-crafted features. It is more powerful and often gives better results in text classification tasks. However, it also needs more computing power and is harder to explain.
 
 By using both approaches, I wanted to see whether a simple and transparent model could be good enough, or if the deep learning model brings a big improvement. This comparison helped me learn more about the strengths and weaknesses of each method.
+

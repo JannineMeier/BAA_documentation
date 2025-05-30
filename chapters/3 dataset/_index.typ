@@ -2,7 +2,7 @@
 #import "/template/_helpers.typ": title-caption
 #import "@preview/acrostiche:0.5.0": acr, acrfull
 
-= Data Sources and Preprocessing
+= Data Sources 
 
 == Dataset Construction
 
@@ -50,6 +50,24 @@ The dataset retains a curated set of metadata fields relevant for modeling and a
 The Language column was excluded, as over 99% of papers were written in English. The few non-English entries (e.g., in German or French) were too sparse to contribute meaningfully to classification and could introduce unnecessary noise.
 
 Further details on how these metadata features were transformed and engineered can be found in @feature_eng.
+
+=== Similarity Score Features
+
+To assess the semantic alignment between citing papers and their references, I incorporated four similarity-based features developed by Christof Bless. These features, detailed in the GitHub repository (https://github.com/Christof93/citation_semantic_congruence), quantify the semantic distance between citation contexts and cited abstracts using L2 (Euclidean) distance on sentence embeddings.
+
+The sentence embeddings were generated using the SPECTER model, a transformer-based encoder trained on scientific literature.
+
+The features are:
+
+- *mean_citation_context_to_cited_abstract_l2_distance_y*: Average distance between each citation context in the citing paper and the abstract of the cited paper, indicating overall semantic similarity.
+
+- *max_citation_context_to_cited_abstract_l2_distance_y*: Maximum distance observed among all citation context–cited abstract pairs, highlighting potential outlier citations.
+
+- *mean_abstract_to_cited_abstract_l2_distance_y*: Average distance between the citing paper's abstract and the abstracts of all cited papers, reflecting general alignment.
+
+- *max_abstract_to_cited_abstract_l2_distance_y*: Maximum distance between the citing abstract and any cited abstract, identifying significant semantic deviations.
+
+Due to limitations in available metadata, these features could be computed for approximately 8,000 papers, comprising 6,000 retracted and 2,000 non-retracted articles. The remaining ~12,000 papers lacked sufficient data for these calculations. Despite this, the similarity features offer valuable insights into the degree of content overlap and potential anomalies in citation practices.
 
 
 === Retraction Reason Selection and Labeling <labeling>
@@ -101,7 +119,8 @@ This binary definition enabled focused modeling on misconduct cases while exclud
   )
 )<labeloverlap>
 
-// heeeeeeeeeeeeeeeere
+= Preprocessing
+
 == Feature Extraction and Engineering<feature_eng>
 
 To support diverse modeling strategies, I engineered features across three modalities:
@@ -249,7 +268,7 @@ To represent each paper’s citation context more compactly, I trained node embe
 
 These embeddings serve as dense, learnable representations of each paper’s position and neighborhood in the citation network — similar to how word embeddings capture semantic similarity.
 
-=== Embedding Visualization
+==== Embedding Visualization
 To explore structural patterns, I used t-SNE to reduce the 64-dimensional embeddings to 2D for visualization. Each point represents a paper, color-coded by metadata attributes such as:
 
 - Domain (see Figure @embedding1)
@@ -263,14 +282,14 @@ These visualizations provided insight into whether papers with similar character
 
 
 #figure(
-  image("emb by domain.png", width: 390pt),
+  image("/images/emb by domain.png", width: 390pt),
   caption: [
     A t-SNE projection of ProNE node embeddings, colored by research domain.
   ]
 )<embedding1>
 
 #figure(
-  image("emb by retraction.png", width: 380pt),
+  image("/images/emb by retraction.png", width: 380pt),
   caption: [
     A t-SNE projection of ProNE node embeddings, colored by retraction status.
   ]
@@ -284,13 +303,13 @@ A notable cluster in the 2D t-SNE projection—visibly separated from the main e
 These papers still include citations (mean out-degree = 105.3), but show extremely skewed citation behavior, with one paper citing over 24,000 others. Such patterns may indicate data anomalies, automatically generated references, or low-quality articles from paper mills. Their disconnected status may also explain the model’s difficulty in embedding them meaningfully, resulting in their collapse into a dense blob in the t-SNE plot.
 
 
-== Metadata Thresholding & One-Hot Encoding <onehot>
+=== Metadata Thresholding & One-Hot Encoding <onehot>
 
 Several categorical metadata fields in the dataset, including Author, Institution, Country, Domain, and Field, contained hundreds or thousands of unique values. Many of these appeared only a handful of times, making them difficult to model and prone to overfitting.
 
 To address this, I applied frequency-based thresholding and one-hot encoding.
 
-=== Frequency Thresholding
+==== Frequency Thresholding
 For each categorical column, I grouped infrequent values into an "other" category. The thresholds were selected empirically to strike a balance between coverage and noise reduction:
 - Top 100 authors
 - Top 50 institutions
@@ -302,7 +321,7 @@ For example, the transformed column Field_threshold contains either the original
 
 The thresholds for author, institution, and country indicators were selected after analyzing the distribution of frequencies, which revealed a long-tail pattern with a few highly frequent entries and many rare ones.
 
-=== One-Hot & Multi-Label Encoding
+==== One-Hot & Multi-Label Encoding
 Fields like Author, Institution, and Country were originally stored as semicolon-separated strings, e.g.:
 
 - Author: "Derek C. Angus; Tom van der Poll"
@@ -344,8 +363,7 @@ This approach preserves multi-label information while converting irregular text 
 )<T:metadata_thresholds>
 
 
-/// bis hieeeeeeeeeeeeeeeeeer
-== Creating Metadata Sentences for Text-Based Models
+=== Creating Metadata Sentences for Text-Based Models
 
 Since I planned to use transformer-based models like BERT or DeBERTa, I wanted to include structured metadata in a way that these models could understand. These models are designed to work with text, so I came up with the idea of turning the metadata into *natural language sentences*.
 
@@ -369,162 +387,156 @@ If some parts of the metadata were missing, I just left them out or replaced the
 
 This approach allowed me to give the models extra context without changing their architecture. It also made it possible to use metadata in the same way as the abstract or introduction, as text that the model could read and learn from.
 
+
+== Train-Test Split
+
+To evaluate my models fairly and ensure generalizability, I split my balanced dataset into a training set and a test set using an 80/20 ratio. Since the dataset contains two distinct classes (retracted and non-retracted papers), I avoided a simple random split and instead used a class-stratified method to ensure that both subsets remain balanced.
+
+Specifically, I first divided the dataset by class: all retracted papers and all non-retracted ones. I then applied an 80/20 split *within each class*, resulting in 8,404 retracted and 8,404 non-retracted papers in the training set (16,808 total), and 2,101 of each in the test set (4,202 total). Finally, I shuffled both sets to eliminate any potential ordering bias.
+
+All splits were performed before feature extraction and scaling to prevent data leakage. Although I focused primarily on balancing the retracted label, the distributions of other important attributes such as publication year, research domain, and research field were preserved as much as possible due to the within-class randomization strategy as shown on @split_retraction to @split_field.
+
+This approach ensures that accuracy, AUC, and other evaluation metrics reported later are not skewed by class imbalance. It provides a reliable and representative foundation for training and evaluating classification models.
+
+#figure(
+  image("/images/Retraction Distribution Split.png", width: 380pt),
+  caption: [
+    Class Distribution Across Train/Test Splits.
+  ]
+)<split_retraction>
+
+#figure(
+  image("/images/Year Split.png", width: 380pt),
+  caption: [
+    Publication Year Distribution Across Splits.
+  ]
+)<split_year>
+
+#figure(
+  image("/images/Domain Split.png", width: 380pt),
+  caption: [
+    Research Domain Distribution in Training and Test Sets.
+  ]
+)<split_domain>
+
+#figure(
+  image("/images/Field Split.png", width: 380pt),
+  caption: [
+    Research Field Distribution Across Train/Test Splits.
+  ]
+)<split_field>
+
+
 // here
-== Similarity Score Features
-https://github.com/Christof93/citation_semantic_congruence
-to do: neu schreiben und evtl grafik hinzufügen
-As part of the dataset, I also included several similarity-based features that were developed by Christof. These features aim to measure how similar the content of a paper is to the papers it cites. This can help detect cases of copied text, minimal paraphrasing, or even automatically generated content that heavily borrows from previous work.
-
-The similarity scores are based on the L2 (Euclidean) distance between sentence embeddings. These embeddings are vector representations of texts like abstracts or citation contexts. A lower distance means that the two texts are more similar in meaning and language.
-
-The following four features were included:
-
-- mean_citation_context_to_cited_abstract_l2_distance_y
-  Average distance between the citation context and the abstract of the cited paper. This shows how close a citation statement is to the original content.
-
-- max_citation_context_to_cited_abstract_l2_distance_y
-  Maximum distance between any citation context and a cited abstract. It helps identify outliers where the citation may be unrelated.
-
-- mean_abstract_to_cited_abstract_l2_distance_y
-  Average distance between the full abstract of the paper and all cited abstracts. This gives a general idea of how similar the citing paper’s abstract is to the content it references.
-
-- max_abstract_to_cited_abstract_l2_distance_y
-  Maximum distance between the abstract of the paper and any one cited abstract. This can flag major mismatches or content that deviates significantly from its sources.
-
-Unfortunately, not all cited papers had abstracts available in OpenAlex or other sources, so there are quite a few missing values for these features. Out of the full dataset, only about 8,000 papers have complete similarity scores, while approximately 12,000 papers are missing these values. Among the 8,000 available examples, 2,000 are non-retracted and 6,000 are retracted.
-
-Despite the imbalance and missing data, I will still consider these features for testing purposes. While the smaller subset might make modeling more difficult, especially when evaluating fairness or generalizability, it can still provide useful insights into whether similarity patterns differ between retracted and non-retracted papers.
-
-== Train-Test Split with Class-Symmetric Distribution
-To evaluate my models fairly and ensure generalizability, I split my balanced dataset into a training set and a test set using an 80/20 ratio. Since the dataset contains two distinct classes (retracted and non-retracted papers), I did not use a simple random split. Instead, I made sure that both the train and the test set contain equal numbers of retracted and non-retracted papers so that the classification task remains balanced in both phases of model development.
-
-To achieve this, I first separated the dataset into two groups based on the retracted label. One group contained all retracted papers (labeled as "Yes") and the other group included all non-retracted papers (labeled as "No"). I then applied an 80/20 split within each group separately, which allowed me to preserve the class distribution exactly. After splitting both groups, I combined the training portions of each into one final training set and did the same for the test set. Finally, I shuffled both sets to avoid any ordering bias.
-
-This method ensures that both the training and test sets contain the same number of positive and negative examples and that the class balance is consistent throughout the entire modeling process. By doing this, I avoid giving the model an advantage by training or evaluating on an imbalanced set, which could otherwise lead to misleading performance metrics.
-
-Although I primarily focused on balancing the retracted label, the distributions of other relevant features such as Field, Domain, and Year were also preserved as much as possible since the splits were performed randomly within each class. This approach provides a solid and reliable foundation for training and evaluating classification models.
-
-#image("Retraction Distribution Split.png")
-
-#image("Year Split.png")
-
-#image("Domain Split.png")
-
-#image("Field Split.png")
-
 
 == Analysis of Text Structure and Citation Features
-To gain a better understanding of how retracted and non-retracted papers differ in terms of writing style and citation behavior, I analyzed the distribution of a selection of handcrafted features across the training and test sets. The goal was to assess whether there are noticeable structural patterns in the texts or citation statistics that differ between retracted and non-retracted papers, and whether these patterns are consistent across both data splits.
 
-- Text Structure Features
+To explore structural differences between retracted and non-retracted papers, I analyzed selected handcrafted features reflecting writing style and citation behavior. The goal was to uncover patterns that might help distinguish the two classes, and to ensure feature distributions are consistent across both training and test sets.
+
+
+=== Text Structure Features
 I visualized eight core text structure features derived from the abstract, such as character and word counts, sentence length, stopword ratio, digit and special character ratios, and the type-token ratio. These features are intended to capture different dimensions of writing style and complexity.
 
 The distributions were plotted separately for retracted and non-retracted papers within both the training and test sets.
 
-#image("Text Structure Split.png")
+#figure(
+  image("/images/Text Structure Split.png", width: 380pt),
+  caption: [
+    Key abstract-based text structure features, split by class and dataset partition 1.
+  ]
+)<textstructure1>
 
-#image("Text Structure Split 2.png")
+#figure(
+  image("/images/Text Structure Split 2.png", width: 380pt),
+  caption: [
+    Key abstract-based text structure features, split by class and dataset partition 2.
+  ]
+)<textstructure2>
 
-Across all features, the boxplots revealed that:
 
-The overall distributions are quite similar between splits, confirming that the data split was done consistently.
 
-Retracted papers tend to have slightly higher values for some stylistic features such as hc_09_digit_ratio and hc_10_special_char_ratio, although the differences are relatively subtle.
-
-Most features exhibit a long-tailed distribution with a high number of outliers, especially in length-related metrics like character and sentence count. This suggests a large variance in abstract size and writing style across the dataset.
+The boxplots show that retracted and non-retracted papers have largely similar distributions across all text features, confirming the consistency of the data split. Slightly elevated values for retracted papers in features like hc_09_digit_ratio and hc_10_special_char_ratio suggest subtle stylistic differences. Many features, especially those related to length, show long-tailed distributions with outliers indicating high variance in writing styles. One interesting pattern appears in the Type-Token Ratio (TTR): retracted papers consistently show lower TTR values across both training and test sets compared to non-retracted ones. This suggests that retracted papers may use less lexical variety, possibly indicating more repetitive, generic, or templated writing. This trend could reflect differences in writing quality or originality.
 
 These findings are important because they show that writing style alone may not be sufficient to distinguish between retracted and non-retracted papers. However, small stylistic signals could still contribute useful predictive information when combined with other features.
 
-- Citation Features
+=== Citation Features
 In addition to the text-based features, I also examined citation-related metrics, namely incoming_citations_count and outgoing_citations_count. These features reflect how influential a paper is (via received citations) and how well-situated it is in the literature network (via outgoing references).
 
-#image("Citation Split.png")
+The boxplots in Figure @citationsplit highlight clear differences in citation behavior between retracted and non-retracted papers. Retracted papers receive noticeably fewer *incoming citations*, indicating they are less frequently cited by other researchers. This suggests reduced visibility and impact within the scientific community. A similar pattern emerges for *outgoing citations*, where retracted papers also tend to reference fewer sources. This may reflect weaker engagement with existing literature—potentially pointing to superficial scholarship, poor integration, or even synthetic content generation.
 
-The boxplots revealed that:
 
-Retracted papers show slightly higher variance in both citation counts compared to non-retracted ones.
+#figure(
+  image("/images/Citation Split.png", width: 380pt),
+  caption: [
+    Citation Features by Split and Retraction Status.
+  ]
+)<citationsplit>
 
-A small number of papers in both classes are extreme outliers with very high citation counts, which skews the distribution heavily.
-
-On average, there does not appear to be a large difference between retracted and non-retracted papers in terms of citation counts alone.
-
-These insights indicate that while citation counts may carry some signal, especially in combination with network-based features like citation patterns, they are not strong standalone indicators of retraction.
-
-Overall, this analysis helped validate that both splits reflect a consistent distribution of key writing and citation characteristics, and that the features chosen are diverse and potentially informative for downstream modeling tasks.
-
+These findings imply that retracted papers are often *less integrated into the scholarly citation network*, even before accounting for more complex structural features. Such disconnection may be associated with lower research quality, questionable practices, or lack of academic recognition.
 
 
 == Entity Distribution Analysis Across Splits and Classes
 
-To further examine the representativeness and potential biases within my training and test sets, I analyzed the top 10 most frequently occurring entries for the categorical entity features: authors, institutions, and countries. These were previously transformed into binary indicator columns for high-frequency entries during feature engineering.
+To assess representativeness and check for potential sources of bias, I analyzed the distribution of the most frequent categorical entities - authors, institutions, and countries —across the training and test sets. These features were previously converted into binary indicators for the most frequent values (see @T:metadata_thresholds).
 
-For each of these feature groups, I plotted the top 10 entities separately for each split (train, test) and retraction class (Yes, No). This resulted in four subplots per group, enabling a detailed comparison of entity presence across subsets of the dataset.
+For each entity type, I visualized the top 10 most common entries stratified by split (train, test) and class label (Yes = retracted, No = non-retracted). This resulted in four subplots per entity group.
 
-The results revealed several important patterns:
+Key Observations:
+- Authors: The placeholder feature author_Other dominated across all subsets, reflecting the expected long-tail distribution. However, certain retracted authors such as Joachim Boldt and Yoshitaka Fujii consistently ranked among the most frequent entries in the retracted class. In contrast, the non-retracted class showed a broader distribution, with no single author as dominant.
 
-- Authors: Across both training and test sets, the placeholder author_Other was by far the most frequent entry, which was expected due to the long-tail distribution of author names. However, certain retracted authors such as Joachim Boldt and Yoshitaka Fujii consistently appeared among the top entries in the Yes class, indicating a strong class-specific presence. In contrast, the No class contained a more diverse spread of authors, with lower individual counts.
+- Institutions: inst_Other appeared most frequently overall, but clear trends were visible within known entries. Institutions such as Harvard University, University of Washington, and Stanford University were predominantly associated with non-retracted papers. Retracted papers more often referenced a broader range of institutions, including King Saud University and King Abdulaziz University, which occurred mostly in the retracted class.
 
-- Institutions: Similar to authors, inst_Other dominated all subsets. Notably, institutions such as Harvard University, University of Washington, and Stanford University were frequently represented in the non-retracted class (No), especially in the training set. Retracted papers, on the other hand, were more commonly associated with a broader range of institutions, many of which appeared only in the Yes class, such as departments from King Saud University or King Abdulaziz University.
+- Countries: The retracted class was strongly dominated by China, followed by India, Saudi Arabia, and Germany. In contrast, non-retracted papers were most often affiliated with United States, United Kingdom, Canada, and Australia. These geographic trends may reflect real-world disparities in retraction rates, research practices, or publication volume.
 
-- Countries: The country distribution showed clear geographic trends. China dominated the retracted class, while the United States was the most frequent in the non-retracted class. Other countries such as India, Germany, and Saudi Arabia were also prevalent in the Yes class, whereas United Kingdom, Canada, and Australia were more frequent in the No class.
-#image("Country Split.png")
 
-This analysis confirmed that certain authors, institutions, and countries are disproportionately represented in either the retracted or non-retracted class. These patterns may reflect real-world retraction dynamics or underlying publication patterns, but they also highlight the importance of controlling for such features during model training to prevent unintended bias or overfitting.
+#figure(
+  image("/images/Country Split.png", width: 380pt),
+  caption: [
+    Top Countries by Split and Retraction Status.
+  ]
+)<country_split>
 
-The visualization also showed that the entity distributions were largely consistent between training and test sets, supporting the validity of the stratified split and the use of these features in downstream modeling.
+These findings confirm that certain authors, institutions, and countries are disproportionately represented in one class. While this may reflect real-world retraction dynamics or underlying publication dynamics, it also raises the potential for bias. Classifiers trained on these features might inadvertently overfit to spurious associations unless such effects are controlled.
 
+Encouragingly, the distributions remained consistent between training and test sets, validating the stratified sampling procedure and supporting the use of these entity-based features in downstream modeling.
+
+
+// here
 
 == Feature Selection and Significance Analysis for Logistic Regression
 
-To identify which input features meaningfully contribute to the prediction of retracted scientific publications (neben tfidf von textstpcken), I conducted a thorough feature selection and significance evaluation on my train dataset using logistic regression. Since logistic regression relies on numerical and interpretable features and is sensitive to multicollinearity, careful preprocessing and feature grouping were essential steps before conducting any statistical analysis.
+To determine which input features meaningfully contribute to the prediction of retracted scientific publications—beyond traditional text representations such as TF-IDF—I conducted a comprehensive feature selection and significance analysis using logistic regression on the training dataset. Logistic regression is particularly well-suited for this purpose due to its interpretability, but it is sensitive to multicollinearity and requires all input features to be numerical and fixed-dimensional. As such, careful feature preprocessing, encoding, and grouping were performed prior to any statistical evaluation.
+
 
 === Feature Types Considered
+The dataset contained a broad and diverse set of features derived from text, metadata, citation behavior, and graph-based enrichment. For this analysis, only numerical and binary features were considered, as logistic regression requires fixed-dimensional, numerical inputs. The selected features were grouped into the following categories:
 
-The dataset contained a large number of diverse features, including raw text, categorical metadata, numerical statistics, and engineered features. Only numerical and binary features were considered in this stage, as logistic regression requires fixed-dimensional, numerical input.
+- *Handcrafted Linguistic Features*: A total of 60 handcrafted features were engineered to quantify structural and stylistic aspects of the paper. These include: 
+  - Abstract features (hc prefix): word count, sentence length, etc.
+  - Full-text features (hc_ft prefix): extracted using the same logic as the abstract features, but applied to the entire available text (FullText).
+  This separation allows comparison between summary-level and full-document writing characteristics.
 
-The selected features fall into the following main categories:
+- *Citation and Network Features*: These include incoming_citations_count and outgoing_citations_count. Both features capture the paper’s position in the citation network and reflect scholarly influence.
 
-1. *Handcrafted Features (Abstract)*
-   These are 30 linguistic and structural features extracted from the abstract section of each paper. They include measures such as sentence count, average sentence length, stopword ratio, type-token ratio, passive constructions, lexical density, punctuation frequency, and more. These features were prefixed with `hc_`.
+- *Semantic Similarity Features*: These features quantify semantic distances between a paper’s text and its referenced works using sentence embeddings:
+  - mean/max_citation_context_to_cited_abstract_l2_distance_y
 
-2. *Handcrafted Features (Full Text)*
-   Another set of 30 features were extracted using the same linguistic logic but applied to the entire available text of the publication (`FullText`). These are prefixed with `hc_ft_`.
+  - mean/max_abstract_to_cited_abstract_l2_distance_y
+  Higher distances may signal inconsistent or superficial citation behavior.
 
-3. *Citation and Network Features*
-   The features in this group include:
+- *Metadata Counts*: These numeric features summarize the scale and diversity of collaboration: 
+  - num_authors
+  - num_institutions
+  - num_countries
 
-   - `incoming_citations_count`: Number of times the paper has been cited.
-   - `outgoing_citations_count`: Number of references made by the paper.
+- *Graph Embedding Features (Node Embeddings)*: I used 64-dimensional node embeddings derived from the citation graph, where each node represents a paper. These embeddings, stored in columns "0" to "63" help represent a paper's role in the scientific graph independently of its textual content.
 
-4. *Semantic Similarity Features*
-   These features capture how semantically close the citing context or abstract of a paper is to the cited papers:
+- *Binary Encoded Indicators*: To encode categorical metadata, the most frequent values (Authors, Institutions, Countries) were transformed into binary variables
 
-   - `mean_citation_context_to_cited_abstract_l2_distance_y`
-   - `max_citation_context_to_cited_abstract_l2_distance_y`
-   - `mean_abstract_to_cited_abstract_l2_distance_y`
-   - `max_abstract_to_cited_abstract_l2_distance_y`
+- *Domain and Field Variables*: These were one-hot encoded to create binary features (e.g., Domain_threshold_Life Sciences, Field_threshold_Medicine).
 
-5. *Metadata Counts*
-   To describe author-level complexity and international collaboration, I included:
+This comprehensive selection allowed for a rich combination of textual, structural, semantic, and contextual signals to be analyzed in a consistent, interpretable format suitable for logistic regression.
 
-   - `num_authors`
-   - `num_institutions`
-   - `num_countries`
-
-6. *Text Embedding Features (TF-IDF or SBERT)*
-   I used 64 dense numerical features that represent the semantic content of a paper. These could be TF-IDF vectors or sentence embeddings from models like SBERT, stored in columns `0` to `63`.
-
-7. *Binary Encoded Author Indicators*
-   Based on the top 100 most common authors in the dataset, I added binary features such as `author_Joachim Boldt` or `author_Wei Zhang` indicating whether a given author was part of a paper.
-
-8. *Binary Encoded Institution Indicators*
-   A similar process was used for the top 50 institutions, adding features such as `inst_Harvard University` or `inst_University of Washington`.
-
-9. *Binary Encoded Country Indicators*
-   For the top 20 most common countries, binary features like `country_United States` or `country_China` were added.
-
-10. *Domain and Field Information*
-    Originally present as strings, the `Domain_threshold` and `Field_threshold` columns were transformed into dummy variables using one-hot encoding. Each unique value was converted into a binary feature, such as `Domain_threshold_Health Sciences` or `Field_threshold_Medicine`.
     
 === Preprocessing and Scaling
 
@@ -533,71 +545,63 @@ All selected features were numerical or binary after preprocessing. Before model
 
 === Significance Estimation via Logistic Regression
 
-To evaluate the contribution of each feature, I applied logistic regression five times using different random seeds (0, 1, 42, 100, 1234) to ensure the robustness of coefficient estimates. Each run involved an 80/20 train-test split with stratification based on the target variable `retracted`. For each trained model, I extracted the learned coefficients and computed:
+To quantify the predictive value of individual input features, I conducted a significance analysis using logistic regression. Given that logistic regression is sensitive to collinearity and yields interpretable coefficients, it is well suited for this type of feature evaluation.
 
-- The *mean* coefficient per feature across all runs.
-- The *standard deviation* of the coefficients.
-- A *t-like score* defined as mean / standard deviation to assess stability and relative importance.
+To ensure robustness and reduce the impact of random variation, I repeated the analysis five times with different random seeds (0, 1, 42, 100, 1234). Each run involved an 80/20 stratified train-test split based on the target variable retracted.
 
-Features were then ranked by the *absolute value of their mean coefficient*, which reflects how strongly and consistently they contribute to the prediction of retraction status.
+For each of the five trained models, I extracted the learned feature coefficients and computed the following statistics:
+- Mean coefficient: The average weight assigned to each feature across runs, indicating the direction and strength of its overall association with retraction.
+- Standard deviation: The variability of the coefficient across seeds, used to assess estimation stability.
+- t-like score: A stability-adjusted importance measure, calculated as the ratio of mean to standard deviation. This highlights features that are both influential and consistently weighted across different splits.
 
-=== Rationale
+This step aimed to identify not only strong individual predictors of retraction but also the most informative feature groups for downstream modeling. To support interpretability and robustness, features were ranked by the absolute value of their mean logistic regression coefficient, providing a clear metric of predictive impact. I manually selected the most stable and influential features by prioritizing those with high mean coefficients, low variance across runs, and consistency with domain knowledge. This process informs which features should be retained and helps distinguish between informative patterns and redundant or noisy signals.
 
-The goal of this step was not only to identify strong individual predictors but also to understand which groups of features hold the most information about fraudulent publications. This analysis helps determine which feature types should be prioritized in more complex models (e.g., neural networks or graph-based models) and which ones may be redundant or noisy. It also informs model interpretability by highlighting interpretable features, such as certain stylistic markers or well-known retracted authors.
-
-In the next step, I will interpret the ranking and performance of the top features and feature groups in more detail. This will include both individual feature importance as well as group-level comparisons based on classification accuracy.
 
 === Feature Significance and Groupwise Performance Analysis
 
-After selecting and preparing a broad set of features from various categories, I conducted two levels of analysis to evaluate their contribution to the prediction of scientific retractions. The first focused on estimating individual feature importance using logistic regression. The second assessed the predictive power of entire feature groups using repeated model evaluation.
+To evaluate the contribution of individual features and feature groups to retraction prediction, I performed two complementary analyses. The first estimated the significance of individual features using logistic regression coefficients. The second assessed the standalone predictive power of entire feature groups through repeated model evaluation.
 
 ==== Individual Feature Significance
 
-To assess the influence of individual features, I trained logistic regression models across five different random seeds using an 80/20 split. Each model was trained with all selected features, including handcrafted text statistics, semantic similarity scores, citation counts, binary author/institution/country encodings, and more. I extracted the model coefficients for each run and computed:
-
-- The mean coefficient per feature
-- The standard deviation of the coefficients
-- A t-like stability score defined as the ratio of mean to standard deviation
-- The absolute mean as an indicator of overall influence (regardless of direction)
-
-The top-ranked features reflect both strong positive and negative associations with retracted papers. 
-
-#image("Significance Testing.png")
-Notably, the top 10 features included:
-
+Using logistic regression trained with five different random seeds (80/20 stratified split). The top-ranked features as shown in @sig_test reflect both strong positive and negative associations with retracted papers:
 - `incoming_citations_count` and `outgoing_citations_count`, both with strong negative coefficients. This suggests that retracted papers tend to be cited less frequently and reference fewer other papers, indicating a weaker position in the citation network.
 - `mean_citation_context_to_cited_abstract_l2_distance_y` and `max_abstract_to_cited_abstract_l2_distance_y`, which had strong positive coefficients. These features measure semantic divergence between citing contexts and cited works, potentially reflecting incoherence or misuse of references.
 - `Year` also emerged as one of the top features. Its inclusion reflects temporal patterns in retraction, possibly linked to changes in publication practices, fraud detection capabilities, or evolving scientific standards. Since the dataset was not stratified by year, this effect could likely be a reflection of class imbalance.
 - `num_authors`, which showed a strong negative correlation with retraction. Papers with fewer authors may lack collaborative oversight.
 - Handcrafted features such as `hc_ft_27_long_word_ratio` and `hc_ft_28_short_word_ratio`, showing that lexical properties of text are also predictive.
 - Specific authors and countries, such as `author_James E Hunton`, `author_Diederik A Stapel`, and `country_Korea, Republic of`, also emerged as important binary indicators. These results align with known cases of academic misconduct.
+- Several field-level indicators (`Field_threshold_Medicine`, `Field_threshold_Computer Science`, etc.) and linguistic markers (`type_token_ratio`, `adj_count`, `stopword_ratio`) also contributed meaningfully to the prediction task.
 
-Several field-level indicators (`Field_threshold_Medicine`, `Field_threshold_Computer Science`, etc.) and linguistic markers (`type_token_ratio`, `adj_count`, `stopword_ratio`) also contributed meaningfully to the prediction task.
+#figure(
+  image("/images/Significance Testing.png", width: 380pt),
+  caption: [
+    Top Most Influential Features (LogReg).
+  ]
+)<sig_test>
+
 
 This detailed coefficient-based ranking provides a valuable foundation for interpreting the influence of individual features and understanding their role in differentiating retracted and non-retracted papers.
 
 ==== Groupwise Performance Comparison
 
-To complement the analysis of individual feature importance, I evaluated the predictive power of each feature group in isolation. This helped to identify which types of features carry the most information when used alone. For this purpose, I trained logistic regression models five times per group, using the same seeds and evaluation setup as before. The results are summarized below:
+To complement individual feature analysis, I evaluated each feature group in isolation by training five logistic regression models per group using the same seeds and evaluation procedure. Mean classification accuracy was used to assess predictive strength:
 
-- *Citation (0.958)* — The three features capturing citation volume proved to be the most informative group by far. This highlights how citation context reflects credibility and influence.
-- *Country binaries (0.834)* — The country of authorship appears to be a strong differentiator. This may reflect known biases or systemic issues in publishing quality across regions.
-- *Handcrafted (abstract) (0.809)* — Linguistic and structural properties of the abstract carried substantial signal, confirming that writing style and structure are informative indicators.
-- *Embeddings (0.780)* — Semantic vector representations of the text (TF-IDF or SBERT) were also effective, although less so than citation or country-based features.
-- *Handcrafted (full text) (0.734)* — Text statistics derived from the full paper performed moderately well but slightly worse than those from the abstract, possibly due to noise from less curated sections.
-- *Similarity features (0.719)* — L2 distance-based measures of semantic consistency across references and abstracts were also useful, but secondary to citation volume itself.
-- *Meta counts (0.667)* — The number of authors, institutions, and countries per paper provided moderate signal, supporting the idea that collaboration and scope influence paper reliability.
-- *Field/domain dummies (0.553)* — Encoded fields and disciplines contributed only weakly on their own, possibly due to redundancy with other features or limited resolution.
-- *Author binaries (0.546)* — While individual authors like known fraudsters were important, using the entire binary vector in isolation did not yield high predictive performance.
-- *Institution binaries (0.525)* — Similarly, institution information alone was not sufficient for accurate classification, though certain institutions may still hold signal when combined with others.
+- *Citation (0.958)*: The features capturing citation volume proved to be the most informative group by far. This highlights how citation context reflects credibility and influence.
+- *Country binaries (0.834)*: The country of authorship appears to be a strong differentiator. This may reflect known biases or systemic issues in publishing quality across regions.
+- *Handcrafted (abstract) (0.809)*: Linguistic and structural properties of the abstract carried substantial signal, confirming that writing style and structure are informative indicators.
+- *Graph Embedding Features (0.780)*: Graph-based semantic representations of papers, derived from the citation network, provided strong performance and captured underlying structural patterns.
+- *Handcrafted (full text) (0.734)*: Text statistics derived from the full paper performed moderately well but slightly worse than those from the abstract, possibly due to noise from less curated sections.
+- *Similarity features (0.719)*: L2 distance-based measures of semantic consistency across references and abstracts were also useful, but secondary to citation volume itself.
+- *Meta counts (0.667)*: The number of authors, institutions, and countries per paper provided moderate signal, supporting the idea that collaboration and scope influence paper reliability.
+- *Field/domain dummies (0.553)*: Encoded fields and disciplines contributed only weakly on their own, possibly due to redundancy with other features or limited resolution.
+- *Author binaries (0.546)*: While individual authors like known fraudsters were important, using the entire binary vector in isolation did not yield high predictive performance.
+- *Institution binaries (0.525)*: Similarly, institution information alone was not sufficient for accurate classification, though certain institutions may still hold signal when combined with others.
 
-These results reveal that citation-based and geographic features are the most discriminative when considered independently. Linguistic characteristics, semantic coherence, and topical metadata also contribute valuable signal. On the other hand, simple binary encodings of authors or institutions, though informative in specific cases, do not generalize well in isolation.
+These results confirm that citation-based, geographic, and linguistic features are the most informative when used independently. While some binary indicators (e.g., authors, institutions) are useful in isolated cases, they offer limited generalization and lower standalone performance.
 
-Excellent — here's a detailed, academic-style documentation section explaining your **feature selection** decisions, based on statistical significance, generalizability, and empirical model performance. This is structured and written for inclusion in your thesis or report.
+//here
 
- Feature Selection for Logistic Regression
 
-To ensure that my logistic regression model remains interpretable, performant, and generalizable to unseen data (such as new authors, institutions, or papers), I applied a multi-step feature selection strategy grounded in empirical evidence and established statistical reasoning.
 
 === Feature Selection Decisions
 
@@ -605,147 +609,95 @@ Based on the combination of *individual feature influence*, *group-level predict
 
 ==== Retained Feature Groups
 
-- *Citation Features*
-  (`incoming_citations_count`, `outgoing_citations_count`) 
-  These features demonstrated the strongest individual impact and yielded the highest group accuracy (0.958). They represent well-established network centrality concepts and generalize well across domains and time.
+- *Citation Features*: These features demonstrated the strongest individual impact and yielded the highest group accuracy (0.958). They represent well-established network centrality concepts and generalize well across domains and time.
 
-- *Similarity Features*
-  (`mean/max_abstract_to_cited_abstract_l2_distance`, `mean/max_citation_context_to_cited_abstract_l2_distance`)
-  These features quantify semantic coherence between a paper and its citations. Their consistent and interpretable contribution to prediction makes them valuable, even beyond individual coefficients.
+- *Similarity Features*: These features quantify semantic coherence between a paper and its citations. Their consistent and interpretable contribution to prediction makes them valuable, even beyond individual coefficients.
 
-- *Handcrafted Abstract Features*
-  Features such as `hc_01_word_count` and `hc_25_adj_count` showed moderate to strong individual coefficients and belonged to a group with high accuracy (0.809). These features reflect linguistic and structural qualities of abstracts and are interpretable and generalizable.
+- *Handcrafted Abstract Features*: Features such as `hc_01_word_count` and `hc_25_adj_count` showed moderate to strong individual coefficients and belonged to a group with high accuracy (0.809). These features reflect linguistic and structural qualities of abstracts and are interpretable and generalizable.
 
-- *Handcrafted Full-Text Features*
-  Despite slightly lower group accuracy (0.734), these features were retained because they extend the analysis to the complete document and had several individually strong contributors (e.g., `hc_ft_27_long_word_ratio`). They complement the abstract features and increase model robustness.
+- *Handcrafted Full-Text Features*: Despite slightly lower group accuracy (0.734), these features were retained because they extend the analysis to the complete document and had several individually strong contributors (e.g., `hc_ft_27_long_word_ratio`). They complement the abstract features and increase model robustness.
 
-- *Embeddings (TF-IDF/SBERT-based)*
-  These semantic representations (columns `0`–`63`) capture latent meaning and contextual similarity. Though less interpretable, their performance and generalization capacity (accuracy: 0.780) justify their inclusion.
+- *Graph-Based Embeddings*: These 64-dimensional node embeddings (columns 0–63) capture structural position and neighborhood similarity in the citation graph. While not directly interpretable, they contributed moderate predictive power (accuracy: 0.780) and complement other structural and semantic features.
 
-- *Meta Counts*
-  (`num_authors`, `num_institutions`, `num_countries`)
-  These provide high-level information about the scale and diversity of collaboration. Although their coefficients were smaller, they showed moderate group performance and strong generalizability.
+- *Meta Counts*: These provide high-level information about the scale and diversity of collaboration. Although their coefficients were smaller, they showed moderate group performance and strong generalizability.
 
-- *Country Binaries*
-  This group (e.g., `country_United States`, `country_China`) achieved a high standalone accuracy of 0.834. Countries often capture systemic research differences and were shown to generalize well.
+- *Country Binaries*: This group (e.g., `country_United States`, `country_China`) achieved a high standalone accuracy of 0.834. Countries often capture systemic research differences and were shown to generalize well.
 
-- *Top 10 Author Binary Features*
-  Rather than retaining all 100+ `author_` features, I selected only the 10 authors with the strongest and most stable coefficients. These included individuals like `author_Joachim Boldt` and `author_Diederik A Stapel`, who are known for repeated retractions. This balances interpretability, precision, and generalizability while reducing overfitting risk.
-- *Year*
-  The publication year exhibited a strong and stable negative coefficient (mean = -1.695, t-like score = -33.4), indicating that older papers are more likely to be retracted. While this makes intuitive sense—retractions take time—it also introduces the risk of temporal leakage. Year was therefore included for modeling purposes and interpretability, but its implications must be carefully considered (see discussion?).
+- *Top 10 Author Binary Features*: Rather than retaining all 100+ `author_` features, I selected only the 10 authors with the strongest and most stable coefficients. These included individuals like `author_Joachim Boldt` and `author_Diederik A Stapel`, who are known for repeated retractions. This balances interpretability, precision, and generalizability while reducing overfitting risk.
+
+- *Year*: The publication year exhibited a strong and stable negative coefficient (mean = -1.695, t-like score = -33.4), indicating that older papers are more likely to be retracted. While this makes intuitive sense—retractions take time—it also introduces the risk of temporal leakage. Year was therefore included for modeling purposes and interpretability, but models that include Year must be interpreted cautiously, especially in real-world deployment scenarios.
 
 ==== Dropped Feature Groups
 
 - *Author Binaries (except top 10)*
-  The dataset originally included over 100 binary features indicating the presence of specific authors in a given paper. While a small subset of these features—such as those corresponding to known fraudsters like Joachim Boldt or Yoshitaka Fujii—exhibited strong and stable coefficients, the overall group achieved low predictive performance (mean accuracy of 0.546 when used alone). The main limitations of these features are twofold. First, their distribution is extremely sparse, with many authors occurring only once or twice. This encourages overfitting, as the model may learn to associate retractions with specific individuals rather than generalizable patterns. Second, reliance on known author identities hinders the model’s ability to flag retractions by previously unseen or future authors—an essential requirement for a robust detection system. For these reasons, only the ten most influential authors (based on mean coefficient magnitude and t-like score) were retained. All remaining author-level features were excluded to reduce dimensionality and mitigate overfitting.
+  The dataset originally included over 100 binary features indicating the presence of specific authors in a given paper. While a small subset of these features—such as those corresponding to known fraudsters like Joachim Boldt or Yoshitaka Fujii—exhibited strong and stable coefficients, the overall group achieved low predictive performance (mean accuracy of 0.546 when used alone). Their distribution is extremely sparse, with many authors occurring only once or twice. This encourages overfitting. Additionally, reliance on known author identities hinders the model’s ability to flag retractions by previously unseen or future authors. For these reasons, only the ten most influential authors  were retained. 
   
 - *Institution Binaries*
-  Institution-level features were initially included as over 50 binary indicators for the most common affiliations. However, this feature group performed the worst in standalone evaluations, with a mean accuracy of just 0.525. Most institutions appeared only a few times in the dataset, making them statistically weak predictors. Additionally, institutional affiliation alone is not a consistent or reliable proxy for paper quality or retraction risk. In many cases, its influence is already captured by other features such as citation metrics. Including these sparse binary variables would increase model complexity and potentially reduce generalization to new or unseen data. As a result, all institution binaries were removed from the final logistic regression feature set.
+  Despite initial inclusion of 50+ institutional indicators, this group yielded the weakest performance (accuracy: 0.525). Sparse occurrence and inconsistent predictive value made them a poor choice for generalizable modeling. All institution binaries were excluded.
 
 - *Field and Domain Dummies*
-  Although theoretically relevant, these features had limited predictive power in practice. When evaluated in isolation, the groups achieved a mean accuracy of only 0.553. Additionally, their broad categorization failed to capture the nuances between subfields, and their effect overlapped substantially with other features such as textual structure and semantic embeddings. Given their redundancy, low granularity, and weak model performance, all field and domain variables were excluded from the final feature set.
+  Broad academic categories like Field and Domain added limited value (accuracy: 0.553) and overlapped with more informative features like text embeddings or linguistic patterns. Their low granularity and weak standalone performance led to their exclusion from the final set.
 
+In total, the refined logistic regression feature set contains 167 features, offering a balance of interpretability, predictive strength, and generalization potential for the downstream classification task.
 
-Final Feature Groups (Total: 167 features, including target retracted)
+#figure(
+  table(
+    columns: 3,
+    align: left,
+    table.header(
+      [Feature Group], [Count], [Description],
+    ),
+    [Citation], [2], [`incoming_citations_count`, `outgoing_citations_count`],
+    [Similarity], [4], [`mean/max_..._l2_distance_y` between citation contexts and cited abstracts],
+    [Handcrafted Abstract], [30], [Linguistic features from the abstract (`hc_...`)],
+    [Handcrafted Fulltext], [30], [Linguistic features from the full text (`hc_ft_...`)],
+    [Embeddings], [64], [ProNE node embeddings: columns `"0"` to `"63"`],
+    [Meta Counts], [3], [`num_authors`, `num_institutions`, `num_countries`],
+    [Country Binaries], [23], [One-hot encoded country indicators (`country_...`)],
+    [Top 10 Authors], [10], [Most influential `author_...` binaries],
+    [Year], [1], [Publication year (standardized)],
+    [Target], [1], [`retracted` (binary label)]
+  ),
+  caption: title-caption(
+    [Final Logistic Regression Feature Set],
+    [This table summarizes all retained feature groups, their size, and descriptions, used in the final logistic regression setup.]
+  )
+)<finalfeatures>
 
-
-#table(
-  columns: 3,
-  align: left,
-  [Group], [Count], [Notes],
-  [Citation], [2], [`incoming_citations_count`, `outgoing_citations_count`],
-  [Similarity], [4], [`mean_citation_context_to_cited_abstract_l2_-distance_y`, `mean_abstract_to_cited_abstract_l2_distance_y`, `max_-citation_context_to_cited_abstract_l2_distance_y`, `max_abstract_to_cited_abstract_l2_distance_y`],
-  [Handcrafted Abstract], [30], [Features from abstract text, prefixed with `hc_`],
-  [Handcrafted Fulltext], [30], [Full-text features, prefixed with `hc_ft_`],
-  [Embeddings], [64], [Semantic vector features: columns `"0"` to `"63"`],
-  [Meta Counts], [3], [`num_authors`, `num_institutions`, `num_countries`],
-  [Country Binaries], [23], [One-hot encoded countries: `country_...`],
-  [Top 10 Authors], [10], [Most impactful `author_...` binaries],
-  [Year], [1], [Continuous year feature (standardized)],
-  [Target], [1], [`retracted` (binary label)]
-)
-
-
-== 6.3 Significance Testing of Different Text Fields
+== Significance Testing of Different Text Fields
 
 To assess which textual components are most informative for predicting retractions, I conducted significance testing using a standard fine-tuned transformer model (`distilbert-base-uncased`) on three separate fields: `Abstract`, `FullText`, and `metadata_sentences`. The goal was to evaluate their individual predictive power with regard to the retraction label using consistent training and evaluation settings.
 
-The model was fine-tuned on each field separately using 5 different random seeds to ensure robustness. Each training run used a stratified 80/20 train-test split, and evaluation was based on classification accuracy.
-
-*Final Results*
-#table(
-  columns: 3,
-  align: left,
-  [Field], [Mean Accuracy], [Std Accuracy], [`metadata_sentences`], [1.0000], [0.0000], [`Abstract`],[0.9164], [0.0026], [`FullText `], [0.7526], [0.0011], 
-)
-
-*Interpretation of Results*
-
-1. *`metadata_sentences` (Accuracy = 1.0000)* ???
-   This result is unexpectedly perfect — the model achieved 100% accuracy with 0 variance across seeds. Upon manual inspection of the field, it became evident that `metadata_sentences` contains only descriptive information such as the country, institution, date, and scientific domain. It does not include any direct reference to retraction status, misconduct, or results.
-   This suggests that the model is likely relying on *strong correlations between metadata and the label*, for example, certain countries or institutions being overrepresented in the retracted subset. While technically effective in this dataset, this result is misleading and likely reflects *label leakage* through non-generalizable metadata. Thus, this field should be excluded from text-based fraud detection tasks or analyzed separately as a metadata-based approach.
-
-   
-📄 Sample 2857
-Label: NOT RETRACTED
-Metadata Sentences:
-This paper was written on 01/21/2021 00:00 in Germany, at German Center for Diabetes Research (DZD), Neuherberg, Germany;Institute of Diabetes Research and Metabolic Diseases (IDM), the Helmholtz Center, Munich, Germany, in the domain of Health Sciences, covering the field of Medicine.
-
-📄 Sample 4398
-Label: RETRACTED
-Metadata Sentences:
-This paper was written on 3/25/2021 0:00 in India, at Department of Computer Science & Engineering, Sri Krishna College of Technology, Kovaipudur, Coimbatore, Tamil Nadu, India, in the domain of Physical Sciences, covering the field of Computer Science.
-
-📄 Sample 8280
-Label: RETRACTED
-Metadata Sentences:
-This paper was written on 2/20/2019 0:00 in China, at Department of Traditional Chinese and Western Oncology, the First Affiliated Hospital of Anhui Medical University, No 120 Wanshui Road, High-tech Zone, Hefei 230088, Anhui, China;, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
-
-📄 Sample 8995
-Label: RETRACTED
-Metadata Sentences:
-This paper was written on 7/2/2022 0:00 in China, at Constrution Project Office of Wuchang Lalin River Section of Tieke Expressway, Harbin, Heilongjiang 150001, China;, in the domain of Physical Sciences, covering the field of Engineering.
-
-📄 Sample 9689
-Label: RETRACTED
-Metadata Sentences:
-This paper was written on 11/11/2021 0:00 in China, at Second Department of Spleen and Stomach Diseases, Gansu Provincial Hospital of Traditional Chinese Medicine, Lanzhou City 730050, Gansu, China; Department of Anorectal Diseases, Gansu Provincial Hospital of Traditional Chinese Medicine, Lanzhou City 730050, China;, in the domain of Health Sciences, covering the field of Medicine.
-
-📄 Sample 1035
-Label: NOT RETRACTED
-Metadata Sentences:
-This paper was written on 07/12/2019 00:00 in United States, at Howard Hughes Medical Institute Research Laboratory, Seattle, USA;Basic Sciences Division, Fred Hutchinson Cancer Research Center, 1100 Fairview Ave N, Seattle, WA, 98109, USA;Scientific Computing, Fred Hutchinson Cancer Research Center, 1100 Fairview Ave N, Seattle, WA, 98109, USA, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
-
-📄 Sample 11588
-Label: NOT RETRACTED
-Metadata Sentences:
-This paper was written on 09/08/2012 00:00 in United States, at Broad Institute of Harvard and Massachusetts Institute of Technology , Cambridge, Massachusetts 02142;Department of Genetics , Harvard Medical School, Boston, Massachusetts 02115;Affymetrix , Inc., Santa Clara, California 95051, in the domain of Physical Sciences, covering the field of Earth and Planetary Sciences.
-
-📄 Sample 7099
-Label: NOT RETRACTED
-Metadata Sentences:
-This paper was written on 06/27/2012 00:00 in China;United States, at 1 Division of Biostatistics, Dan L. Duncan Cancer Center and 2Department of Molecular and Cellular Biology, Baylor College of Medicine, Houston, TX 77030, USA and 3State Key Laboratory of Bioelectronics, School of Biological Science and Medical Engineering, Southeast University, Nanjing, China, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
-
-📄 Sample 10250
-Label: NOT RETRACTED
-Metadata Sentences:
-This paper was written on 01/01/2021 00:00 in China, at School of Computer Science and Engineering, Sun Yat-sen University, China, in the domain of Physical Sciences, covering the field of Computer Science.
-
-📄 Sample 1356
-Label: RETRACTED
-Metadata Sentences:
-This paper was written on 4/4/2012 0:00 in United Kingdom, at Wolfson Institute for Biomedical Research; MRC Laboratory for Molecular Cell Biology and Department of Neuroscience, Physiology and Pharmacology University College London, London WC1E 6BT, UK;, in the domain of Life Sciences, covering the field of Biochemistry, Genetics and Molecular Biology.
+The model was fine-tuned on each field separately using 5 different random seeds to ensure robustness. Each training run used a stratified 80/20 train-test split, and evaluation was based on classification accuracy as seen in @textfieldaccuracy.
 
 
-2. *`Abstract` (Accuracy = 91.6%)*
-   The abstract field achieved high accuracy with low variance, making it the most reliable textual field for retraction prediction. This suggests that abstracts often contain subtle linguistic or content-based cues related to the quality or credibility of the paper. Unlike `metadata_sentences`, the abstract reflects the scientific reasoning and findings of the authors and is less likely to introduce unwanted biases. For this reason, the abstract was used as the primary text input for the deep learning approach in subsequent experiments.
+#figure(
+  table(
+    columns: 3,
+    align: left,
+    table.header(
+      [Text Field], [Mean Accuracy], [Standard Deviation],
+    ),
+    [`metadata_sentences`], [1.0000], [0.0000],
+    [`Abstract`], [0.9164], [0.0026],
+    [`FullText`], [0.7526], [0.0011],
+  ),
+  caption: title-caption(
+    [Accuracy of Text Fields in Transformer-Based Retraction Prediction],
+    [Mean and standard deviation of classification accuracy for three text inputs using a fine-tuned transformer model (`distilbert-base-uncased`) across five seeds.]
+  )
+)<textfieldaccuracy>
 
-3. *`FullText` (Accuracy = 75.3%)*
-   The full-text field performed significantly worse than the abstract, despite theoretically containing more information. Several factors likely contributed to this: (1) longer texts were truncated to 256 tokens, potentially cutting off important information; (2) full texts are more variable in structure and may contain large sections unrelated to the scientific core (e.g., boilerplate methods or acknowledgements); and (3) there may be more noise and formatting inconsistencies. These results suggest that using the full text without further preprocessing (e.g., section extraction or summarization) is suboptimal in this context.
+=== Interpretation
+- *metadata_sentences (Accuracy = 1.0000)*: This field yielded perfect accuracy across all runs, indicating likely label leakage. Manual inspection revealed that the field includes descriptive metadata such as country, institution, and publication year—attributes that are strongly correlated with retraction labels in the dataset. While effective in this context, such prediction is non-generalizable and misleading. As a result, this field was excluded from further text-based modeling to avoid exploiting bias or dataset artifacts.
 
-*Conclusion*
+- *Abstract (Accuracy = 91.6%)*: Abstracts provided high predictive power with low variance, making them the most reliable textual input. They contain domain-relevant information and subtle linguistic cues, offering a good balance of informativeness and generalizability. Accordingly, the abstract was selected as the main input for subsequent transformer-based modeling.
 
-These findings highlight that not all text fields are equally informative for fraud detection. While metadata fields may allow near-perfect prediction within the current dataset, such results are likely driven by bias and label leakage. In contrast, abstracts strike a strong balance between informativeness and generalizability, making them a reliable input for building robust and explainable models.
+- *FullText (Accuracy = 75.3%)*: Despite containing more raw information, the full text performed significantly worse. This may be due to input truncation (limited to 256 tokens), structural variability, or noise from boilerplate sections. Without additional preprocessing (e.g., summarization or section filtering), full-text inputs appear suboptimal for this task.
+
+=== Conclusion
+
+Not all text fields are equally suitable for retraction prediction. Metadata-derived text can artificially inflate performance through label leakage, while full texts pose challenges due to length and noise. Abstracts, in contrast, offer concise, domain-specific content with high predictive value and were thus selected as the primary input for robust and interpretable modeling.
 
 
 
